@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת שיבוצים שנתית - מישרים</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.6.0/dist/xlsx.bundle.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
+* { font-family: 'Heebo', sans-serif; }
+.gantt-cell { min-width: 32px; max-width: 32px; height: 26px; font-size: 10px; text-align: center; border: 1px solid #e5e7eb; cursor: pointer; position: relative; overflow: hidden; }
+.gantt-cell:hover { outline: 2px solid #3b82f6; z-index: 10; }
+.gantt-cell.friday { background: #99CCFF; }
+.gantt-cell.shabbat { background: #E3C9B7; }
+.gantt-cell.jewish-holiday { background: #D8D6C2; }
+.gantt-cell.arab-holiday { background: #FFCCCC; }
+.gantt-cell.druze-holiday { background: #CCE5CC; }
+.gantt-cell.blocked { background: repeating-linear-gradient(45deg, transparent, transparent 3px, #ff000020 3px, #ff000020 6px) !important; }
+.gantt-cell.has-event { position: relative; }
+.event-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 4px; }
+.month-label { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); font-weight: 600; font-size: 13px; background: #ECF9E7; min-width: 28px; text-align: center; padding: 4px 2px; }
+.gantt-header { font-size: 9px; font-weight: 600; color: #666; }
+.holiday-text { font-size: 7px; color: #333; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.event-cell { font-size: 8px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; padding: 1px 2px; border-radius: 2px; }
+.gantt-cell.highlight-event { outline: 3px solid #f97316 !important; z-index: 20; box-shadow: 0 0 8px #f9731660; }
+.monthly .gantt-cell { min-width: 80px; max-width: 80px; height: 32px; font-size: 13px; }
+.monthly .event-cell { font-size: 11px; }
+.monthly .holiday-text { font-size: 9px; }
+.event-cancelled { text-decoration: line-through; opacity: 0.5; }
+.event-postponed { opacity: 0.6; border: 1px dashed #f59e0b; }
+.chat-bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; margin: 4px 0; font-size: 13px; line-height: 1.4; }
+.chat-user { background: #3b82f6; color: white; margin-right: auto; border-bottom-left-radius: 4px; }
+.chat-ai { background: #f3f4f6; color: #333; margin-left: auto; border-bottom-right-radius: 4px; }
+.sidebar { transition: width 0.3s; }
+.tooltip { position: absolute; z-index: 50; background: #1f2937; color: white; padding: 6px 10px; border-radius: 6px; font-size: 11px; white-space: nowrap; pointer-events: none; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+</style>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: {
+    'seminar': '#E9B1F2', 'forum': '#FFC000', 'special': '#00B0F0',
+    'jewish': '#D8D6C2', 'arab': '#FFCCCC', 'druze': '#CCE5CC'
+  }}}
+};
+</script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+// ============================================================
+// CALENDAR UTILITIES
+// ============================================================
+const GEMATRIA = {
+  1:"א'",2:"ב'",3:"ג'",4:"ד'",5:"ה'",6:"ו'",7:"ז'",8:"ח'",9:"ט'",
+  10:"י'",11:'י"א',12:'י"ב',13:'י"ג',14:'י"ד',15:'ט"ו',16:'ט"ז',
+  17:'י"ז',18:'י"ח',19:'י"ט',20:"כ'",21:'כ"א',22:'כ"ב',23:'כ"ג',
+  24:'כ"ד',25:'כ"ה',26:'כ"ו',27:'כ"ז',28:'כ"ח',29:'כ"ט',30:"ל'"
+};
+
+const WEEKDAYS_HEB = ["א'","ב'","ג'","ד'","ה'","ו'","ש'"];
+const MONTHS_HEB = ['ספטמבר','אוקטובר','נובמבר','דצמבר','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט'];
+const HEBREW_YEAR_NAMES = {5784:"תשפ\"ד",5785:"תשפ\"ה",5786:"תשפ\"ו",5787:"תשפ\"ז",5788:"תשפ\"ח",5789:"תשפ\"ט",5790:"תש\"צ",5791:"תשצ\"א"};
+
+const hebDateFmt = new Intl.DateTimeFormat('en-u-ca-hebrew', { day:'numeric', month:'long', year:'numeric' });
+const islamicDateFmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day:'numeric', month:'long', year:'numeric' });
+
+function getHebrewDate(date) {
+  try {
+    const parts = hebDateFmt.formatToParts(date);
+    const day = parseInt(parts.find(p => p.type === 'day')?.value) || 0;
+    const month = parts.find(p => p.type === 'month')?.value || '';
+    const yearStr = parts.find(p => p.type === 'year')?.value || '';
+    const year = parseInt(yearStr.replace(/[^0-9]/g, '')) || 0;
+    return { day, month, year };
+  } catch { return { day: 0, month: '', year: 0 }; }
+}
+
+function getIslamicDate(date) {
+  try {
+    const parts = islamicDateFmt.formatToParts(date);
+    const day = parseInt(parts.find(p => p.type === 'day')?.value) || 0;
+    const month = parts.find(p => p.type === 'month')?.value || '';
+    return { day, month };
+  } catch { return { day: 0, month: '' }; }
+}
+
+function dateKey(d) { return d.toISOString().slice(0,10); }
+function parseDate(s) { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function fmtDate(isoStr) { const [y,m,d] = isoStr.split('-'); return `${d}/${m}/${y}`; }
+function jsWeekday(d) { return d.getDay(); } // 0=Sun, 6=Sat
+function isFriday(d) { return jsWeekday(d) === 5; }
+function isShabbat(d) { return jsWeekday(d) === 6; }
+function hebWeekday(d) { return WEEKDAYS_HEB[jsWeekday(d)]; }
+
+// ============================================================
+// HOLIDAY DATABASE
+// ============================================================
+const JEWISH_HOLIDAYS_DB = {
+  'Tishri': {1:'ראש השנה',2:'ראש השנה',3:'צום גדליה',10:'יום כיפור',14:'ערב סוכות',15:'סוכות',16:'חוה"מ סוכות',17:'חוה"מ סוכות',18:'חוה"מ סוכות',19:'חוה"מ סוכות',20:'חוה"מ סוכות',21:'הושענא רבה',22:'שמחת תורה'},
+  'Heshvan': {},
+  'Kislev': {25:'חנוכה',26:'חנוכה',27:'חנוכה',28:'חנוכה',29:'חנוכה',30:'חנוכה'},
+  'Tevet': {1:'חנוכה',2:'חנוכה',10:'צום עשרה בטבת'},
+  'Shevat': {15:'ט"ו בשבט'},
+  'Adar': {13:'תענית אסתר',14:'פורים'},
+  'Adar I': {},
+  'Adar II': {13:'תענית אסתר',14:'פורים'},
+  'Nisan': {14:'ערב פסח',15:'פסח',16:'חוה"מ פסח',17:'חוה"מ פסח',18:'חוה"מ פסח',19:'חוה"מ פסח',20:'חוה"מ פסח',21:'שביעי של פסח',27:'יום השואה'},
+  'Iyar': {4:'יום הזיכרון',5:'יום העצמאות',18:'ל"ג בעומר',28:'יום ירושלים'},
+  'Sivan': {6:'שבועות',7:'שבועות'},
+  'Tamuz': {17:'צום י"ז בתמוז'},
+  'Av': {9:'צום ט\' באב'},
+  'Elul': {}
+};
+
+const ISLAMIC_HOLIDAYS_DB = {
+  'Ramadan': {1:'תחילת הרמדאן'},
+  'Shawwal': {1:'עיד אל-פיטר',2:'עיד אל-פיטר',3:'עיד אל-פיטר'},
+  'Dhuʻl-Hijjah': {10:'עיד אל-אדחא',11:'עיד אל-אדחא',12:'עיד אל-אדחא',13:'עיד אל-אדחא'}
+};
+
+// Druze holidays - fixed Gregorian dates
+const DRUZE_HOLIDAYS_FIXED = [
+  { month: 4, day: 25, name: 'חג הנביא שועייב' },
+  { month: 1, day: 25, name: 'חג הנביא אל-ח\'דר' },
+];
+
+// Memorial days (fixed Gregorian or computed)
+const MEMORIAL_DAYS = {
+  '10-07': 'יוה"ז לאירועי 7 באוקטובר',
+  '11-04': 'יוה"ז לי. רבין',
+};
+
+function generateHolidays(gregStartYear) {
+  const holidays = {};
+  const start = new Date(gregStartYear, 8, 1);
+  const end = new Date(gregStartYear + 1, 7, 31);
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const key = dateKey(d);
+    const heb = getHebrewDate(d);
+    const isl = getIslamicDate(d);
+    let entries = [];
+
+    // Jewish holidays
+    const jewMonth = JEWISH_HOLIDAYS_DB[heb.month];
+    if (jewMonth && jewMonth[heb.day]) {
+      entries.push({ name: jewMonth[heb.day], type: 'jewish' });
+    }
+
+    // Erev Rosh Hashana
+    if (heb.month === 'Elul' && heb.day === 29) {
+      entries.push({ name: 'ערב ר"ה', type: 'jewish' });
+    }
+    // Erev Yom Kippur
+    if (heb.month === 'Tishri' && heb.day === 9) {
+      entries.push({ name: 'עיו"כ', type: 'jewish' });
+    }
+
+    // Islamic holidays
+    const islMonth = ISLAMIC_HOLIDAYS_DB[isl.month];
+    if (islMonth && islMonth[isl.day]) {
+      entries.push({ name: islMonth[isl.day], type: 'arab' });
+    }
+
+    // Druze holidays
+    for (const dh of DRUZE_HOLIDAYS_FIXED) {
+      if (d.getMonth() + 1 === dh.month && d.getDate() === dh.day) {
+        entries.push({ name: dh.name, type: 'druze' });
+      }
+    }
+
+    // Memorial days
+    const mmdd = `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (MEMORIAL_DAYS[mmdd]) {
+      entries.push({ name: MEMORIAL_DAYS[mmdd], type: 'memorial' });
+    }
+
+    if (entries.length > 0) {
+      holidays[key] = entries;
+    }
+  }
+  return holidays;
+}
+
+// ============================================================
+// GENERATE CALENDAR DATA FOR ACADEMIC YEAR
+// ============================================================
+function generateYearData(gregStartYear) {
+  const months = [];
+  for (let i = 0; i < 12; i++) {
+    const year = i < 4 ? gregStartYear : gregStartYear + 1;
+    const month = ((i + 8) % 12); // 8=Sep, 9=Oct, ... 7=Aug
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const days = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d);
+      const heb = getHebrewDate(date);
+      days.push({
+        date: dateKey(date),
+        day: d,
+        weekday: jsWeekday(date),
+        hebDay: heb.day,
+        hebMonth: heb.month,
+        hebYear: heb.year,
+        gematria: GEMATRIA[heb.day] || '',
+        isFriday: isFriday(date),
+        isShabbat: isShabbat(date),
+        weekdayHeb: hebWeekday(date)
+      });
+    }
+    months.push({
+      year, month, name: MONTHS_HEB[i],
+      firstDay, daysInMonth, days
+    });
+  }
+  return months;
+}
+
+// ============================================================
+// EVENT CATEGORIES
+// ============================================================
+const CATEGORIES = {
+  seminar: { name: 'סמינר מנהלים', color: '#E9B1F2', icon: '🎓' },
+  forum: { name: 'פורום ארגוני', color: '#FFC000', icon: '👥' },
+  conference: { name: 'כנס', color: '#00B0F0', icon: '🏛️' },
+  training: { name: 'הכשרה', color: '#90EE90', icon: '📚' },
+  status: { name: 'סטטוס/דיווח', color: '#DDA0DD', icon: '📊' },
+  data: { name: 'איסוף נתונים', color: '#87CEEB', icon: '📋' },
+  team: { name: 'צוות מישרים', color: '#F0E68C', icon: '👨‍💼' },
+  other: { name: 'אחר', color: '#C0C0C0', icon: '📌' }
+};
+
+// ============================================================
+// PREDEFINED EVENTS TEMPLATES
+// ============================================================
+const EVENT_TEMPLATES = [
+  { name: 'פורום ארגונים מלווים', category: 'forum', type: 'recurring', recurrence: 'monthly', participants: 20, notes: 'אחת לחודש לאורך כל השנה' },
+  { name: 'פורום מנכלי"ם', category: 'forum', type: 'recurring', recurrence: 'custom', count: 3, participants: 15, notes: 'שלושה מפגשים בשנה' },
+  { name: 'מנהלי מחזור א\'', category: 'seminar', type: 'one-time', participants: 0, notes: 'לא יתקיים פיתוח מקצועי מובחן, יזומנו לכנסים' },
+  { name: 'מנהלי מחזור ב\'', category: 'seminar', type: 'recurring', recurrence: 'custom', count: 6, participants: 30, notes: '4 סמינרים, סמינר אביב, סמינר קיץ' },
+  { name: 'מנהלים מחזור ג\'', category: 'seminar', type: 'recurring', recurrence: 'custom', count: 6, participants: 30, notes: '4 סמינרים/סבבים לימודיים, סמינר אביב, סמינר קיץ' },
+  { name: 'הכשרת מאמנות אוריינות', category: 'training', type: 'recurring', recurrence: 'monthly', participants: 20, notes: 'מפגש אחת לחודש, לינה בכנס אביב' },
+  { name: 'כנס מישרים', category: 'conference', type: 'recurring', recurrence: 'custom', count: 2, participants: 100, notes: 'חד יומי, אביב וקיץ, בהשתתפות ארגונים ופיקוח' },
+  { name: 'פיתוח מקצועי צוות מישרים', category: 'team', type: 'recurring', recurrence: 'custom', count: 4, participants: 15, notes: '3 מפגשים חד יומי במהלך השנה + סמינר סיכום שנה יומיים בחודש יולי' },
+  { name: 'הגשת תוכניות עבודה', category: 'status', type: 'one-time', participants: 0, notes: 'סוף ספטמבר' },
+  { name: 'סטטוס אמצע שנה', category: 'status', type: 'one-time', participants: 20, notes: 'מחזור ב\' - פברואר, מחזור ג\' - סטטוס פנימי ע"י הארגונים' },
+  { name: 'סטטוס סוף שנה', category: 'status', type: 'one-time', participants: 20, notes: 'מחזור ג\' - מאי, מחזור ב\' - סטטוס פנימי ע"י הארגונים' },
+  { name: 'משימות 1-2 עברית', category: 'data', type: 'one-time', participants: 0, notes: 'איסוף נתונים מכלי הערכה פנימיים' },
+  { name: 'משימות 1-2 ערבית', category: 'data', type: 'one-time', participants: 0, notes: 'איסוף נתונים מכלי הערכה פנימיים' },
+  { name: 'מחוון אוריינות', category: 'data', type: 'recurring', recurrence: 'custom', count: 2, participants: 0, notes: 'איסוף נתונים - שני מועדים בשנה' },
+  { name: 'אמון ההורים', category: 'data', type: 'one-time', participants: 0, notes: 'שאלון איסוף נתונים' },
+  { name: 'שאלון מורים', category: 'data', type: 'one-time', participants: 0, notes: 'פתוח כשבועיים-שלושה' },
+  { name: 'משימות סוף השנה כיתה א\'', category: 'data', type: 'one-time', participants: 0, notes: 'סוף יוני' },
+  { name: 'ביקורים', category: 'other', type: 'recurring', recurrence: 'custom', count: 3, participants: 0, notes: '' },
+  { name: 'מפקחות', category: 'other', type: 'recurring', recurrence: 'custom', count: 4, participants: 0, notes: '' },
+  { name: 'כנס מנהלים ומפקחים', category: 'conference', type: 'one-time', participants: 0, notes: '' },
+  { name: 'אירוע סיום מחזור ב\'', category: 'conference', type: 'one-time', participants: 0, notes: 'אירוע מיוחד' },
+  { name: 'שיריון מישרים ד\'', category: 'other', type: 'one-time', participants: 0, notes: '' },
+];
+
+// ============================================================
+// PRE-LOADED EVENTS FROM EXCEL (גאנט מישרים תשפז.xlsx)
+// ============================================================
+const PRELOADED_EVENTS = [
+  { id: 'pre_1', name: 'פורום ארגונים מלווים - מורחב', category: 'forum', type: 'one-time', dates: ['2027-05-12'], participants: 20, notes: 'פורום מורחב', hotel: {} },
+  { id: 'pre_2', name: 'ביקורים', category: 'other', type: 'one-time', dates: ['2027-05-20'], participants: 0, notes: '', hotel: {} },
+  { id: 'pre_3', name: 'שאלוני אח"מ', category: 'data', type: 'one-time', dates: ['2027-05-23'], participants: 0, notes: '', hotel: {} },
+  { id: 'pre_4', name: 'כנס מנהלים ומפקחים', category: 'conference', type: 'one-time', dates: ['2027-05-26'], participants: 0, notes: '', hotel: {} },
+  { id: 'pre_5', name: 'אירוע סיום מחזור ב\'', category: 'conference', type: 'one-time', dates: ['2027-08-03'], participants: 0, notes: 'אירוע מיוחד', hotel: {} },
+  { id: 'pre_6', name: 'סמינר מנהלים', category: 'seminar', type: 'one-time', dates: ['2027-08-04'], participants: 30, notes: '', hotel: {} },
+];
+
+// ============================================================
+// UNIQUE ID GENERATOR
+// ============================================================
+let _idCounter = 0;
+function uid() { return 'evt_' + Date.now().toString(36) + '_' + (++_idCounter); }
+
+// ============================================================
+// AI TOOLS DEFINITIONS
+// ============================================================
+const AI_TOOLS = [
+  {
+    name: 'schedule_event',
+    description: 'שיבוץ אירוע חדש בגאנט. השתמש בכלי זה כשהמשתמש מבקש לשבץ, להוסיף, או ליצור אירוע.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'שם האירוע' },
+        category: { type: 'string', enum: Object.keys(CATEGORIES), description: 'קטגוריה' },
+        dates: { type: 'array', items: { type: 'string' }, description: 'רשימת תאריכים בפורמט YYYY-MM-DD' },
+        participants: { type: 'number', description: 'מספר משתתפים' },
+        notes: { type: 'string', description: 'הערות' }
+      },
+      required: ['name', 'category', 'dates']
+    }
+  },
+  {
+    name: 'remove_event',
+    description: 'הסרת אירוע מהגאנט לפי מזהה.',
+    input_schema: {
+      type: 'object',
+      properties: { eventId: { type: 'string', description: 'מזהה האירוע' } },
+      required: ['eventId']
+    }
+  },
+  {
+    name: 'cancel_event_date',
+    description: 'ביטול תאריך ספציפי של אירוע.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'מזהה האירוע' },
+        date: { type: 'string', description: 'התאריך לביטול YYYY-MM-DD' }
+      },
+      required: ['eventId', 'date']
+    }
+  },
+  {
+    name: 'postpone_event_date',
+    description: 'דחיית תאריך של אירוע לתאריך חדש.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'מזהה האירוע' },
+        oldDate: { type: 'string', description: 'התאריך המקורי YYYY-MM-DD' },
+        newDate: { type: 'string', description: 'התאריך החדש YYYY-MM-DD' }
+      },
+      required: ['eventId', 'oldDate', 'newDate']
+    }
+  },
+  {
+    name: 'block_day',
+    description: 'חסימת יום מסיבה כלשהי.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        date: { type: 'string', description: 'תאריך YYYY-MM-DD' },
+        reason: { type: 'string', description: 'סיבת החסימה' }
+      },
+      required: ['date', 'reason']
+    }
+  },
+  {
+    name: 'suggest_dates',
+    description: 'הצעת תאריכים מתאימים לאירוע, תוך התחשבות בחגים, שבתות, חסימות ואירועים קיימים.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        count: { type: 'number', description: 'מספר מופעים לשבץ' },
+        monthRange: { type: 'string', description: 'טווח חודשים, לדוגמה: 9-12 או 1-6' },
+        avoidWeekdays: { type: 'array', items: { type: 'number' }, description: 'ימים בשבוע להימנע (0=ראשון, 6=שבת)' },
+        preferWeekdays: { type: 'array', items: { type: 'number' }, description: 'ימים מועדפים בשבוע' }
+      },
+      required: ['count']
+    }
+  },
+  {
+    name: 'get_schedule_info',
+    description: 'קבלת מידע על הגאנט: אירועים, חגים, ימים פנויים.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'מה לחפש: events, holidays, free_days, month_summary' },
+        month: { type: 'number', description: 'חודש ספציפי (1-12, כאשר 1=ספטמבר)' }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'update_hotel',
+    description: 'עדכון פרטי מלון לאירוע.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'מזהה האירוע' },
+        hotel: { type: 'object', description: 'פרטי מלון', properties: {
+          people: { type: 'number' }, nights: { type: 'number' },
+          roomsSingle: { type: 'number' }, roomsDouble: { type: 'number' },
+          area: { type: 'string' }, quality: { type: 'string' },
+          requirements: { type: 'string' }, catering: { type: 'string' }
+        }}
+      },
+      required: ['eventId', 'hotel']
+    }
+  }
+];
+
+// ============================================================
+// MAIN APP COMPONENT
+// ============================================================
+function App() {
+  const [hebrewYear, setHebrewYear] = useState(5787);
+  const [events, setEvents] = useState(PRELOADED_EVENTS);
+  const [blockedDays, setBlockedDays] = useState({});
+  const [customHolidays, setCustomHolidays] = useState({});
+  const [cancelledDates, setCancelledDates] = useState({}); // {eventId: {date: true}}
+  const [postponedDates, setPostponedDates] = useState({}); // {eventId: {oldDate: newDate}}
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [activePanel, setActivePanel] = useState('events'); // events, hotel, ai, settings
+  const [apiKey, setApiKey] = useState('');
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [selectedCell, setSelectedCell] = useState(null);
+  const [tooltip, setTooltip] = useState(null);
+  const [hoveredEventId, setHoveredEventId] = useState(null); // for Gantt highlight
+  const [viewMode, setViewMode] = useState('year'); // 'year' or index 0-11 for monthly
+  const chatEndRef = useRef(null);
+
+  const gregStartYear = hebrewYear - 3761; // approximate: 5787 -> 2026
+
+  const yearData = useMemo(() => generateYearData(gregStartYear), [gregStartYear]);
+  const holidays = useMemo(() => generateHolidays(gregStartYear), [gregStartYear]);
+
+  // Merge custom holidays
+  const allHolidays = useMemo(() => {
+    const merged = { ...holidays };
+    for (const [key, val] of Object.entries(customHolidays)) {
+      if (!merged[key]) merged[key] = [];
+      merged[key] = [...merged[key], { name: val.name, type: val.type || 'custom' }];
+    }
+    return merged;
+  }, [holidays, customHolidays]);
+
+  // Load from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('misharim_project');
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.hebrewYear) setHebrewYear(data.hebrewYear);
+        if (data.events && data.events.length > 0) setEvents(data.events);
+        if (data.blockedDays) setBlockedDays(data.blockedDays);
+        if (data.customHolidays) setCustomHolidays(data.customHolidays);
+        if (data.cancelledDates) setCancelledDates(data.cancelledDates);
+        if (data.postponedDates) setPostponedDates(data.postponedDates);
+        if (data.apiKey) setApiKey(data.apiKey);
+      }
+    } catch {}
+  }, []);
+
+  // Auto-save
+  useEffect(() => {
+    const data = { hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, apiKey };
+    localStorage.setItem('misharim_project', JSON.stringify(data));
+  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, apiKey]);
+
+  // Get events for a specific date
+  const getEventsForDate = useCallback((date) => {
+    return events.filter(e => {
+      if (cancelledDates[e.id]?.[date]) return false;
+      // Check if date is in original dates or is a postponed-to date
+      const isOriginal = e.dates.includes(date) && !postponedDates[e.id]?.[date];
+      const isPostponedTo = Object.values(postponedDates[e.id] || {}).includes(date);
+      return isOriginal || isPostponedTo;
+    });
+  }, [events, cancelledDates, postponedDates]);
+
+  // Check conflicts for a date
+  const getConflicts = useCallback((date) => {
+    const conflicts = [];
+    const d = parseDate(date);
+    if (isShabbat(d)) conflicts.push({ type: 'shabbat', text: 'שבת' });
+    if (isFriday(d)) conflicts.push({ type: 'friday', text: 'יום שישי' });
+    if (allHolidays[date]) {
+      for (const h of allHolidays[date]) {
+        conflicts.push({ type: h.type, text: h.name });
+      }
+    }
+    if (blockedDays[date]) conflicts.push({ type: 'blocked', text: `חסום: ${blockedDays[date]}` });
+    return conflicts;
+  }, [allHolidays, blockedDays]);
+
+  // Smart date suggestions
+  const suggestDates = useCallback((count, options = {}) => {
+    const { monthRange, avoidWeekdays = [5, 6], preferWeekdays = [1, 2, 3] } = options;
+    const suggestions = [];
+
+    for (const monthData of yearData) {
+      const monthIdx = yearData.indexOf(monthData) + 1;
+      if (monthRange) {
+        const [start, end] = monthRange.split('-').map(Number);
+        if (monthIdx < start || monthIdx > end) continue;
+      }
+
+      for (const day of monthData.days) {
+        if (avoidWeekdays.includes(day.weekday)) continue;
+        if (allHolidays[day.date]) continue;
+        if (blockedDays[day.date]) continue;
+
+        const existingEvents = getEventsForDate(day.date);
+        const score = (preferWeekdays.includes(day.weekday) ? 10 : 5) - existingEvents.length * 3;
+
+        suggestions.push({ date: day.date, score, day: day.day, month: monthData.name, weekday: day.weekdayHeb });
+      }
+    }
+
+    suggestions.sort((a, b) => b.score - a.score);
+    return suggestions.slice(0, count * 3); // Return 3x options
+  }, [yearData, allHolidays, blockedDays, getEventsForDate]);
+
+  // Add event
+  const addEvent = useCallback((eventData) => {
+    const newEvent = { id: uid(), ...eventData, hotel: eventData.hotel || {} };
+    setEvents(prev => [...prev, newEvent]);
+    return newEvent;
+  }, []);
+
+  // Remove event
+  const removeEvent = useCallback((eventId) => {
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+    setCancelledDates(prev => { const n = {...prev}; delete n[eventId]; return n; });
+    setPostponedDates(prev => { const n = {...prev}; delete n[eventId]; return n; });
+  }, []);
+
+  // Cancel a specific date
+  const cancelDate = useCallback((eventId, date) => {
+    setCancelledDates(prev => ({
+      ...prev,
+      [eventId]: { ...(prev[eventId] || {}), [date]: true }
+    }));
+  }, []);
+
+  // Postpone a date
+  const postponeDate = useCallback((eventId, oldDate, newDate) => {
+    setPostponedDates(prev => ({
+      ...prev,
+      [eventId]: { ...(prev[eventId] || {}), [oldDate]: newDate }
+    }));
+  }, []);
+
+  // Block a day
+  const blockDay = useCallback((date, reason) => {
+    setBlockedDays(prev => ({ ...prev, [date]: reason }));
+  }, []);
+
+  // Unblock a day
+  const unblockDay = useCallback((date) => {
+    setBlockedDays(prev => { const n = {...prev}; delete n[date]; return n; });
+  }, []);
+
+  // Add custom holiday
+  const addCustomHoliday = useCallback((date, name, type = 'custom') => {
+    setCustomHolidays(prev => ({ ...prev, [date]: { name, type } }));
+  }, []);
+
+  // Remove custom holiday
+  const removeCustomHoliday = useCallback((date) => {
+    setCustomHolidays(prev => { const n = {...prev}; delete n[date]; return n; });
+  }, []);
+
+  // ============================================================
+  // AI CHAT
+  // ============================================================
+  const buildSystemContext = useCallback(() => {
+    const evtSummary = events.map(e =>
+      `[${e.id}] ${e.name} (${CATEGORIES[e.category]?.name}) - תאריכים: ${e.dates.join(', ')}`
+    ).join('\n');
+
+    const blockedSummary = Object.entries(blockedDays).map(([d, r]) => `${d}: ${r}`).join('\n');
+
+    return `אתה עוזר לתכנון שנתי של תוכנית מישרים. השנה העברית: ${HEBREW_YEAR_NAMES[hebrewYear]} (${gregStartYear}-${gregStartYear+1}).
+
+אירועים משובצים:
+${evtSummary || 'אין אירועים'}
+
+ימים חסומים:
+${blockedSummary || 'אין ימים חסומים'}
+
+קטגוריות זמינות: ${Object.entries(CATEGORIES).map(([k,v]) => `${k}=${v.name}`).join(', ')}
+
+תמיד ענה בעברית. השתמש בכלים כדי לבצע פעולות.`;
+  }, [events, blockedDays, hebrewYear, gregStartYear]);
+
+  const executeAiTool = useCallback((toolName, toolInput) => {
+    switch (toolName) {
+      case 'schedule_event': {
+        const evt = addEvent({
+          name: toolInput.name,
+          category: toolInput.category || 'other',
+          type: 'one-time',
+          dates: toolInput.dates || [],
+          participants: toolInput.participants || 0,
+          notes: toolInput.notes || '',
+          hotel: {}
+        });
+        return `אירוע "${evt.name}" שובץ בהצלחה ב-${evt.dates.length} תאריכים.`;
+      }
+      case 'remove_event': {
+        const evt = events.find(e => e.id === toolInput.eventId);
+        if (!evt) return 'אירוע לא נמצא';
+        removeEvent(toolInput.eventId);
+        return `אירוע "${evt.name}" הוסר.`;
+      }
+      case 'cancel_event_date': {
+        cancelDate(toolInput.eventId, toolInput.date);
+        return `תאריך ${toolInput.date} בוטל.`;
+      }
+      case 'postpone_event_date': {
+        postponeDate(toolInput.eventId, toolInput.oldDate, toolInput.newDate);
+        return `תאריך נדחה מ-${toolInput.oldDate} ל-${toolInput.newDate}.`;
+      }
+      case 'block_day': {
+        blockDay(toolInput.date, toolInput.reason);
+        return `יום ${toolInput.date} נחסם: ${toolInput.reason}`;
+      }
+      case 'suggest_dates': {
+        const suggestions = suggestDates(toolInput.count || 3, {
+          monthRange: toolInput.monthRange,
+          avoidWeekdays: toolInput.avoidWeekdays,
+          preferWeekdays: toolInput.preferWeekdays
+        });
+        return `הצעות תאריכים:\n${suggestions.slice(0, 10).map((s, i) =>
+          `${i+1}. ${s.date} (${s.weekday}, ${s.month})`
+        ).join('\n')}`;
+      }
+      case 'get_schedule_info': {
+        if (toolInput.query === 'events') {
+          return events.map(e => `${e.name}: ${e.dates.join(', ')}`).join('\n') || 'אין אירועים';
+        }
+        if (toolInput.query === 'month_summary' && toolInput.month) {
+          const m = yearData[toolInput.month - 1];
+          if (!m) return 'חודש לא נמצא';
+          const monthEvents = events.filter(e => e.dates.some(d => {
+            const pd = parseDate(d);
+            return pd.getMonth() === m.month && pd.getFullYear() === m.year;
+          }));
+          return `${m.name}: ${monthEvents.length} אירועים\n${monthEvents.map(e => `- ${e.name}`).join('\n')}`;
+        }
+        return 'שאילתה לא מזוהה';
+      }
+      case 'update_hotel': {
+        setEvents(prev => prev.map(e =>
+          e.id === toolInput.eventId ? { ...e, hotel: { ...e.hotel, ...toolInput.hotel } } : e
+        ));
+        return 'פרטי מלון עודכנו.';
+      }
+      default: return 'כלי לא מוכר';
+    }
+  }, [events, addEvent, removeEvent, cancelDate, postponeDate, blockDay, suggestDates, yearData]);
+
+  const sendAiMessage = useCallback(async (message) => {
+    if (!apiKey) { alert('נא להזין API Key בהגדרות'); return; }
+
+    const newHistory = [...chatHistory, { role: 'user', content: message }];
+    setChatHistory(newHistory);
+    setChatInput('');
+    setIsAiLoading(true);
+
+    try {
+      const messages = newHistory.map(m => ({ role: m.role, content: m.content }));
+
+      let response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2048,
+          system: buildSystemContext(),
+          tools: AI_TOOLS,
+          messages
+        })
+      });
+
+      let data = await response.json();
+
+      // Handle tool use loop
+      let toolResults = [];
+      while (data.stop_reason === 'tool_use') {
+        const toolBlocks = data.content.filter(c => c.type === 'tool_use');
+        const textBlocks = data.content.filter(c => c.type === 'text');
+
+        toolResults = toolBlocks.map(tb => ({
+          type: 'tool_result',
+          tool_use_id: tb.id,
+          content: executeAiTool(tb.name, tb.input)
+        }));
+
+        // Continue conversation with tool results
+        const continuedMessages = [
+          ...messages,
+          { role: 'assistant', content: data.content },
+          { role: 'user', content: toolResults }
+        ];
+
+        response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 2048,
+            system: buildSystemContext(),
+            tools: AI_TOOLS,
+            messages: continuedMessages
+          })
+        });
+        data = await response.json();
+      }
+
+      // Extract final text response
+      const aiText = data.content?.filter(c => c.type === 'text').map(c => c.text).join('\n') || 'לא התקבלה תשובה';
+      setChatHistory(prev => [...prev, { role: 'assistant', content: aiText }]);
+
+    } catch (err) {
+      setChatHistory(prev => [...prev, { role: 'assistant', content: `שגיאה: ${err.message}` }]);
+    } finally {
+      setIsAiLoading(false);
+    }
+  }, [apiKey, chatHistory, buildSystemContext, executeAiTool]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory]);
+
+  // ============================================================
+  // SAVE / LOAD / EXPORT
+  // ============================================================
+  const saveProject = useCallback(() => {
+    const timestamp = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' });
+    const data = {
+      version: '1.0',
+      savedAt: timestamp,
+      savedAtISO: new Date().toISOString(),
+      hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `misharim-${HEBREW_YEAR_NAMES[hebrewYear]?.replace(/"/g,'')}-${timestamp.replace(/[/:]/g,'-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates]);
+
+  const loadProject = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (data.hebrewYear) setHebrewYear(data.hebrewYear);
+          if (data.events) setEvents(data.events);
+          if (data.blockedDays) setBlockedDays(data.blockedDays);
+          if (data.customHolidays) setCustomHolidays(data.customHolidays);
+          if (data.cancelledDates) setCancelledDates(data.cancelledDates);
+          if (data.postponedDates) setPostponedDates(data.postponedDates);
+          alert('הפרויקט נטען בהצלחה!');
+        } catch { alert('שגיאה בטעינת הקובץ'); }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, []);
+
+  const exportToExcel = useCallback(() => {
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Gantt
+    const wsData = [];
+    const merges = [];
+    const ROW_MAP = [
+      { greg: 5, heb: 6, events: 7 }, // Sep (row index 0-based)
+      { greg: 10, heb: 11, events: 12 },
+      { greg: 15, heb: 16, events: 17 },
+      { greg: 20, heb: 21, events: 22 },
+      { greg: 25, heb: 26, events: 27 },
+      { greg: 30, heb: 31, events: 32 },
+      { greg: 35, heb: 36, events: 37 },
+      { greg: 40, heb: 41, events: 42 },
+      { greg: 45, heb: 46, events: 47 },
+      { greg: 51, heb: 52, events: 53 },
+      { greg: 56, heb: 57, events: 58 },
+      { greg: 61, heb: 62, events: 63 },
+    ];
+
+    // Initialize 70 rows x 42 cols
+    for (let i = 0; i < 70; i++) {
+      wsData.push(new Array(42).fill(''));
+    }
+
+    // Day of week header row (row 4, 0-indexed)
+    const dowRow = 4;
+    const dowCycle = ["ד'","ה'","ו'","ש'","א'","ב'","ג'"];
+    for (let c = 5; c <= 40; c++) {
+      wsData[dowRow][c] = dowCycle[(c - 5) % 7];
+    }
+
+    // Fill each month
+    yearData.forEach((month, idx) => {
+      const rm = ROW_MAP[idx];
+      if (!rm) return;
+
+      const firstDayJs = new Date(month.year, month.month, 1);
+      const pyWeekday = (firstDayJs.getDay() + 6) % 7; // Mon=0
+      const firstCol = 5 + ((pyWeekday - 2 + 7) % 7); // Col F(5) = Wednesday(2)
+
+      // Month label
+      if (idx === 0) wsData[rm.greg - 1][2] = HEBREW_YEAR_NAMES[hebrewYear] || '';
+
+      for (let d = 0; d < month.daysInMonth; d++) {
+        const col = firstCol + d;
+        if (col > 40) break;
+        const dayData = month.days[d];
+
+        // Gregorian date
+        wsData[rm.greg][col] = d + 1;
+        // Hebrew date
+        wsData[rm.heb][col] = dayData.gematria;
+
+        // Holidays
+        const hols = allHolidays[dayData.date];
+        if (hols) {
+          wsData[rm.events][col] = hols.map(h => h.name).join('/');
+        }
+
+        // Events
+        const dayEvents = getEventsForDate(dayData.date);
+        dayEvents.forEach((evt, ei) => {
+          const evtRow = rm.events + 1 + ei;
+          if (evtRow < 70) wsData[evtRow][col] = evt.name;
+        });
+      }
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Apply styles
+    const fridayFill = { fgColor: { rgb: '99CCFF' } };
+    const shabbatFill = { fgColor: { rgb: 'E3C9B7' } };
+    const jewishFill = { fgColor: { rgb: 'D8D6C2' } };
+    const arabFill = { fgColor: { rgb: 'FFCCCC' } };
+    const greenFill = { fgColor: { rgb: 'ECF9E7' } };
+
+    yearData.forEach((month, idx) => {
+      const rm = ROW_MAP[idx];
+      if (!rm) return;
+      const firstDayJs = new Date(month.year, month.month, 1);
+      const pyWeekday = (firstDayJs.getDay() + 6) % 7;
+      const firstCol = 5 + ((pyWeekday - 2 + 7) % 7);
+
+      for (let d = 0; d < month.daysInMonth; d++) {
+        const col = firstCol + d;
+        if (col > 40) break;
+        const dayData = month.days[d];
+
+        for (let r = rm.greg; r <= rm.events + 3; r++) {
+          const cellRef = XLSX.utils.encode_cell({ r, c: col });
+          if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+
+          if (dayData.isShabbat) {
+            ws[cellRef].s = { fill: { patternType: 'solid', ...shabbatFill }, font: { sz: 9 }, alignment: { horizontal: 'center' } };
+          } else if (dayData.isFriday) {
+            ws[cellRef].s = { fill: { patternType: 'solid', ...fridayFill }, font: { sz: 9 }, alignment: { horizontal: 'center' } };
+          } else {
+            ws[cellRef].s = { font: { sz: 9 }, alignment: { horizontal: 'center' } };
+          }
+        }
+
+        // Holiday coloring
+        const hols = allHolidays[dayData.date];
+        if (hols) {
+          const cellRef = XLSX.utils.encode_cell({ r: rm.events, c: col });
+          const holType = hols[0]?.type;
+          const fill = holType === 'arab' ? arabFill : holType === 'druze' ? { fgColor: { rgb: 'CCE5CC' } } : jewishFill;
+          if (ws[cellRef]) ws[cellRef].s = { ...ws[cellRef].s, fill: { patternType: 'solid', ...fill } };
+        }
+
+        // Event coloring
+        const dayEvents = getEventsForDate(dayData.date);
+        dayEvents.forEach((evt, ei) => {
+          const evtRow = rm.events + 1 + ei;
+          const cellRef = XLSX.utils.encode_cell({ r: evtRow, c: col });
+          const cat = CATEGORIES[evt.category];
+          if (ws[cellRef] && cat) {
+            ws[cellRef].s = {
+              ...ws[cellRef].s,
+              fill: { patternType: 'solid', fgColor: { rgb: cat.color.replace('#', '') } },
+              font: { sz: 8, bold: true }
+            };
+          }
+        });
+      }
+    });
+
+    // Column widths
+    ws['!cols'] = [];
+    for (let i = 0; i < 42; i++) {
+      ws['!cols'].push({ wch: i < 5 ? 8 : 4.5 });
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, `גאנט ${HEBREW_YEAR_NAMES[hebrewYear] || ''}`);
+
+    // Sheet 2: Events list
+    const eventsData = [['שם', 'קטגוריה', 'סוג', 'תאריכים', 'משתתפים', 'הערות', 'מלון-אנשים', 'מלון-לילות', 'מלון-אזור']];
+    events.forEach(e => {
+      eventsData.push([
+        e.name, CATEGORIES[e.category]?.name || '', e.type,
+        e.dates.join(', '), e.participants || '', e.notes || '',
+        e.hotel?.people || '', e.hotel?.nights || '', e.hotel?.area || ''
+      ]);
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet(eventsData);
+    ws2['!cols'] = [{ wch: 25 },{ wch: 15 },{ wch: 10 },{ wch: 40 },{ wch: 10 },{ wch: 30 },{ wch: 10 },{ wch: 10 },{ wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, ws2, 'אירועים');
+
+    XLSX.writeFile(wb, `גאנט-מישרים-${HEBREW_YEAR_NAMES[hebrewYear]?.replace(/"/g,'') || hebrewYear}.xlsx`);
+  }, [yearData, allHolidays, events, getEventsForDate, hebrewYear]);
+
+  // Export for Rashel — detailed events with hotel info
+  const exportForRashel = useCallback(() => {
+    const wb = XLSX.utils.book_new();
+    const header = [
+      'שם האירוע', 'קטגוריה', 'תאריך התחלה', 'תאריך סיום',
+      'משתתפים', 'חדרים זוגי', 'חדרים יחיד', 'סה"כ חדרים',
+      'לילות', 'אזור גיאוגרפי', 'איכות מלון',
+      'דרישות נוספות', 'כיבוד וארוחות', 'הערות', 'מקור'
+    ];
+    const data = [header];
+    events.filter(e => e.dates.length > 0).forEach(e => {
+      const sortedDates = [...e.dates].sort();
+      data.push([
+        e.name,
+        CATEGORIES[e.category]?.name || '',
+        sortedDates[0] || '',
+        sortedDates[sortedDates.length - 1] || '',
+        e.participants || '',
+        e.hotel?.roomsDouble || '',
+        e.hotel?.roomsSingle || '',
+        (e.hotel?.roomsDouble || 0) + (e.hotel?.roomsSingle || 0) || '',
+        e.hotel?.nights || '',
+        e.hotel?.area || '',
+        e.hotel?.quality || '',
+        e.hotel?.requirements || '',
+        e.hotel?.catering || '',
+        e.notes || '',
+        `גאנט מישרים ${HEBREW_YEAR_NAMES[hebrewYear] || ''}`
+      ]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    // Style header
+    for (let c = 0; c < header.length; c++) {
+      const ref = XLSX.utils.encode_cell({ r: 0, c });
+      if (ws[ref]) ws[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { patternType: 'solid', fgColor: { rgb: '6366F1' } }, alignment: { horizontal: 'center' } };
+    }
+    ws['!cols'] = [{ wch: 28 },{ wch: 14 },{ wch: 12 },{ wch: 12 },{ wch: 10 },{ wch: 10 },{ wch: 10 },{ wch: 10 },{ wch: 8 },{ wch: 14 },{ wch: 12 },{ wch: 20 },{ wch: 20 },{ wch: 25 },{ wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'אירועים לרשל');
+    XLSX.writeFile(wb, `אירועים-לרשל-${HEBREW_YEAR_NAMES[hebrewYear]?.replace(/"/g,'') || ''}.xlsx`);
+  }, [events, hebrewYear]);
+
+  // ============================================================
+  // CELL CLICK HANDLER
+  // ============================================================
+  const handleCellClick = useCallback((date, e) => {
+    if (e.shiftKey) {
+      // Shift+click to block/unblock
+      if (blockedDays[date]) {
+        unblockDay(date);
+      } else {
+        const reason = prompt('סיבת חסימה:');
+        if (reason) blockDay(date, reason);
+      }
+      return;
+    }
+
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl+click to add custom holiday
+      const name = prompt('שם החג/אירוע:');
+      if (name) addCustomHoliday(date, name);
+      return;
+    }
+
+    setSelectedCell(date);
+
+    if (selectedEvent) {
+      // Place the selected event on this date
+      const conflicts = getConflicts(date);
+      if (conflicts.length > 0) {
+        const proceed = confirm(`התראה! תאריך ${date} חופף ל:\n${conflicts.map(c => c.text).join('\n')}\n\nלהמשיך?`);
+        if (!proceed) return;
+      }
+
+      setEvents(prev => prev.map(evt =>
+        evt.id === selectedEvent.id
+          ? { ...evt, dates: [...new Set([...evt.dates, date])] }
+          : evt
+      ));
+    }
+  }, [selectedEvent, blockedDays, blockDay, unblockDay, addCustomHoliday, getConflicts]);
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* SIDEBAR */}
+      <div className="sidebar w-80 bg-white border-l border-gray-200 flex flex-col overflow-hidden flex-shrink-0">
+        {/* Header */}
+        <div className="p-3 bg-gradient-to-l from-blue-600 to-purple-600 text-white">
+          <h1 className="text-lg font-bold">מערכת שיבוצים - מישרים</h1>
+          <div className="flex items-center gap-2 mt-2">
+            <select value={hebrewYear} onChange={e => setHebrewYear(Number(e.target.value))}
+              className="bg-white/20 text-white rounded px-2 py-1 text-sm border border-white/30">
+              {Object.entries(HEBREW_YEAR_NAMES).map(([y, name]) => (
+                <option key={y} value={y} className="text-black">{name} ({y-3761}-{y-3760})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Tab buttons */}
+        <div className="flex border-b text-xs">
+          {[['events','אירועים'],['hotel','מלונות'],['ai','AI עוזר'],['settings','הגדרות']].map(([key, label]) => (
+            <button key={key} onClick={() => setActivePanel(key)}
+              className={`flex-1 py-2 px-1 font-medium transition ${activePanel === key ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Panel content */}
+        <div className="flex-1 overflow-y-auto p-3">
+          {activePanel === 'events' && (
+            <EventsPanel
+              events={events}
+              selectedEvent={selectedEvent}
+              setSelectedEvent={setSelectedEvent}
+              setShowEventForm={setShowEventForm}
+              setEditingEvent={setEditingEvent}
+              removeEvent={removeEvent}
+              cancelDate={cancelDate}
+              postponeDate={postponeDate}
+              cancelledDates={cancelledDates}
+              postponedDates={postponedDates}
+              suggestDates={suggestDates}
+              addEvent={addEvent}
+              getConflicts={getConflicts}
+              onHoverEvent={setHoveredEventId}
+            />
+          )}
+          {activePanel === 'hotel' && (
+            <HotelPanel events={events} setEvents={setEvents} />
+          )}
+          {activePanel === 'ai' && (
+            <AiPanel
+              apiKey={apiKey}
+              chatHistory={chatHistory}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              sendAiMessage={sendAiMessage}
+              isAiLoading={isAiLoading}
+              chatEndRef={chatEndRef}
+            />
+          )}
+          {activePanel === 'settings' && (
+            <SettingsPanel
+              apiKey={apiKey}
+              setApiKey={setApiKey}
+              saveProject={saveProject}
+              loadProject={loadProject}
+              exportToExcel={exportToExcel}
+              exportForRashel={exportForRashel}
+              blockedDays={blockedDays}
+              unblockDay={unblockDay}
+              customHolidays={customHolidays}
+              removeCustomHoliday={removeCustomHoliday}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* MAIN GANTT AREA */}
+      <div className="flex-1 overflow-auto bg-gray-50 p-4">
+        <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="inline-block w-4 h-4 rounded" style={{background:'#99CCFF'}}></span><span>שישי</span>
+            <span className="inline-block w-4 h-4 rounded" style={{background:'#E3C9B7'}}></span><span>שבת</span>
+            <span className="inline-block w-4 h-4 rounded" style={{background:'#D8D6C2'}}></span><span>חג יהודי</span>
+            <span className="inline-block w-4 h-4 rounded" style={{background:'#FFCCCC'}}></span><span>חג ערבי</span>
+            <span className="inline-block w-4 h-4 rounded" style={{background:'#CCE5CC'}}></span><span>חג דרוזי</span>
+            <span className="inline-block w-4 h-4 rounded border border-red-300" style={{background:'repeating-linear-gradient(45deg, transparent, transparent 2px, #ff000015 2px, #ff000015 4px)'}}></span><span>חסום</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">Shift+לחיצה = חסום | Ctrl+לחיצה = חג ידני</span>
+            <select value={viewMode} onChange={e => setViewMode(e.target.value === 'year' ? 'year' : Number(e.target.value))}
+              className="border rounded px-2 py-1 text-xs bg-white">
+              <option value="year">תצוגה שנתית</option>
+              {yearData.map((m, i) => (
+                <option key={i} value={i}>{m.name} {m.year}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {(viewMode === 'year' ? yearData : [yearData[viewMode]]).filter(Boolean).map((month, idx) => (
+          <MonthBlock
+            key={`${month.year}-${month.month}`}
+            month={month}
+            monthIndex={viewMode === 'year' ? yearData.indexOf(month) : viewMode}
+            holidays={allHolidays}
+            blockedDays={blockedDays}
+            getEventsForDate={getEventsForDate}
+            handleCellClick={handleCellClick}
+            selectedCell={selectedCell}
+            cancelledDates={cancelledDates}
+            postponedDates={postponedDates}
+            events={events}
+            setTooltip={setTooltip}
+            hoveredEventId={hoveredEventId}
+            isMonthlyView={viewMode !== 'year'}
+          />
+        ))}
+      </div>
+
+      {/* Event Form Modal */}
+      {showEventForm && (
+        <EventFormModal
+          editingEvent={editingEvent}
+          onClose={() => { setShowEventForm(false); setEditingEvent(null); }}
+          onSave={(data) => {
+            if (editingEvent) {
+              setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...data } : e));
+            } else {
+              addEvent(data);
+            }
+            setShowEventForm(false);
+            setEditingEvent(null);
+          }}
+          suggestDates={suggestDates}
+          getConflicts={getConflicts}
+        />
+      )}
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div className="tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
+          {tooltip.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// MONTH BLOCK COMPONENT
+// ============================================================
+function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate, handleCellClick, selectedCell, cancelledDates, postponedDates, events, setTooltip, hoveredEventId, isMonthlyView }) {
+  const maxEventsInMonth = useMemo(() => {
+    let max = 0;
+    for (const day of month.days) {
+      const evts = getEventsForDate(day.date);
+      if (evts.length > max) max = evts.length;
+    }
+    return Math.max(max, 2);
+  }, [month, getEventsForDate]);
+
+  // Compute highlighted dates for hovered event
+  const highlightDates = useMemo(() => {
+    if (!hoveredEventId) return new Set();
+    const evt = events.find(e => e.id === hoveredEventId);
+    if (!evt) return new Set();
+    return new Set(evt.dates);
+  }, [hoveredEventId, events]);
+
+  return (
+    <div className={`mb-4 ${isMonthlyView ? 'monthly' : ''}`}>
+      <div className="flex">
+        {/* Month label */}
+        <div className="month-label flex items-center justify-center rounded-r-lg" style={{ minHeight: `${(4 + maxEventsInMonth) * (isMonthlyView ? 34 : 28)}px` }}>
+          {month.name} {month.year}
+        </div>
+
+        {/* Days grid */}
+        <div className="flex-1 overflow-x-auto">
+          <div className="inline-flex flex-col">
+            {/* Row 1: Weekdays */}
+            <div className="flex">
+              {month.days.map(day => (
+                <div key={`dow-${day.date}`} className="gantt-cell gantt-header bg-gray-100 font-semibold text-gray-500" style={{fontSize:'9px'}}>
+                  {day.weekdayHeb}
+                </div>
+              ))}
+            </div>
+
+            {/* Row 2: Gregorian dates */}
+            <div className="flex">
+              {month.days.map(day => (
+                <div key={`greg-${day.date}`}
+                  className={`gantt-cell text-xs font-medium ${day.isFriday ? 'friday' : ''} ${day.isShabbat ? 'shabbat' : ''} ${blockedDays[day.date] ? 'blocked' : ''} ${highlightDates.has(day.date) ? 'highlight-event' : ''}`}
+                  onClick={(e) => handleCellClick(day.date, e)}
+                  onMouseEnter={(e) => {
+                    const info = [];
+                    if (holidays[day.date]) info.push(...holidays[day.date].map(h => h.name));
+                    if (blockedDays[day.date]) info.push(`🚫 ${blockedDays[day.date]}`);
+                    const evts = getEventsForDate(day.date);
+                    if (evts.length) info.push(...evts.map(ev => `📌 ${ev.name}`));
+                    if (info.length) setTooltip({ x: e.clientX + 10, y: e.clientY + 10, text: info.join(' | ') });
+                  }}
+                  onMouseLeave={() => setTooltip(null)}
+                >
+                  {day.day}
+                </div>
+              ))}
+            </div>
+
+            {/* Row 3: Hebrew dates */}
+            <div className="flex">
+              {month.days.map(day => (
+                <div key={`heb-${day.date}`}
+                  className={`gantt-cell text-gray-600 ${day.isFriday ? 'friday' : ''} ${day.isShabbat ? 'shabbat' : ''}`}
+                  style={{fontSize:'8px'}}>
+                  {day.gematria}
+                </div>
+              ))}
+            </div>
+
+            {/* Row 4: Holidays */}
+            <div className="flex">
+              {month.days.map(day => {
+                const hols = holidays[day.date];
+                const holType = hols?.[0]?.type;
+                let bgClass = '';
+                if (holType === 'jewish' || holType === 'memorial') bgClass = 'jewish-holiday';
+                else if (holType === 'arab') bgClass = 'arab-holiday';
+                else if (holType === 'druze') bgClass = 'druze-holiday';
+
+                return (
+                  <div key={`hol-${day.date}`}
+                    className={`gantt-cell ${bgClass} ${day.isFriday && !hols ? 'friday' : ''} ${day.isShabbat && !hols ? 'shabbat' : ''}`}
+                    title={hols?.map(h => h.name).join(', ')}>
+                    <span className="holiday-text">{hols?.[0]?.name || ''}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Event rows */}
+            {Array.from({ length: maxEventsInMonth }, (_, rowIdx) => (
+              <div key={`evt-row-${rowIdx}`} className="flex">
+                {month.days.map(day => {
+                  const dayEvents = getEventsForDate(day.date);
+                  const evt = dayEvents[rowIdx];
+                  if (!evt) {
+                    return (
+                      <div key={`evt-${day.date}-${rowIdx}`}
+                        className={`gantt-cell ${day.isFriday ? 'friday' : ''} ${day.isShabbat ? 'shabbat' : ''} ${blockedDays[day.date] ? 'blocked' : ''} ${selectedCell === day.date ? 'ring-2 ring-blue-500' : ''}`}
+                        onClick={(e) => handleCellClick(day.date, e)}>
+                      </div>
+                    );
+                  }
+
+                  const cat = CATEGORIES[evt.category];
+                  const isCancelled = cancelledDates[evt.id]?.[day.date];
+                  const isPostponed = postponedDates[evt.id]?.[day.date];
+
+                  return (
+                    <div key={`evt-${day.date}-${rowIdx}`}
+                      className={`gantt-cell has-event ${isCancelled ? 'event-cancelled' : ''} ${isPostponed ? 'event-postponed' : ''}`}
+                      style={{ background: cat?.color + '60' }}
+                      title={`${evt.name}${isCancelled ? ' (בוטל)' : ''}${isPostponed ? ' (נדחה)' : ''}`}
+                      onClick={(e) => handleCellClick(day.date, e)}>
+                      <span className="event-cell" style={{ color: '#333' }}>
+                        {evt.name.slice(0, 6)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// EVENTS PANEL
+// ============================================================
+function EventsPanel({ events, selectedEvent, setSelectedEvent, setShowEventForm, setEditingEvent, removeEvent, cancelDate, postponeDate, cancelledDates, postponedDates, suggestDates, addEvent, getConflicts, onHoverEvent }) {
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-3">
+        <button onClick={() => { setEditingEvent(null); setShowEventForm(true); }}
+          className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 transition">
+          + אירוע חדש
+        </button>
+        <button onClick={() => setShowTemplates(!showTemplates)}
+          className="bg-gray-100 rounded-lg py-2 px-3 text-sm hover:bg-gray-200 transition" title="תבניות מוכנות">
+          📋
+        </button>
+      </div>
+
+      {showTemplates && (
+        <div className="mb-3 bg-yellow-50 rounded-lg p-2 border border-yellow-200">
+          <p className="text-xs font-semibold mb-2 text-yellow-800">תבניות מוכנות מראש:</p>
+          {EVENT_TEMPLATES.map((tmpl, i) => (
+            <button key={i}
+              onClick={() => {
+                addEvent({
+                  name: tmpl.name,
+                  category: tmpl.category,
+                  type: tmpl.type,
+                  dates: [],
+                  participants: tmpl.participants,
+                  notes: tmpl.notes,
+                  hotel: {}
+                });
+                setShowTemplates(false);
+              }}
+              className="block w-full text-right text-xs py-1 px-2 hover:bg-yellow-100 rounded transition">
+              {CATEGORIES[tmpl.category]?.icon} {tmpl.name}
+              <span className="text-gray-400 mr-1">({tmpl.notes})</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selectedEvent && (
+        <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-200 text-xs">
+          <p className="font-semibold text-blue-800">📌 מצב שיבוץ: {selectedEvent.name}</p>
+          <p className="text-blue-600">לחץ על תא בגאנט לשיבוץ</p>
+          <button onClick={() => setSelectedEvent(null)} className="text-red-500 hover:text-red-700 mt-1">ביטול בחירה ✕</button>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {events.length === 0 && <p className="text-gray-400 text-sm text-center py-4">אין אירועים עדיין</p>}
+        {events.map(evt => (
+          <EventCard
+            key={evt.id}
+            event={evt}
+            isSelected={selectedEvent?.id === evt.id}
+            onSelect={() => setSelectedEvent(selectedEvent?.id === evt.id ? null : evt)}
+            onEdit={() => { setEditingEvent(evt); setShowEventForm(true); }}
+            onRemove={() => { if(confirm(`למחוק את "${evt.name}"?`)) removeEvent(evt.id); }}
+            onCancelDate={(date) => { if(confirm(`לבטל את ${fmtDate(date)}?`)) cancelDate(evt.id, date); }}
+            onPostponeDate={(date) => {
+              const input = prompt(`תאריך חדש עבור ${fmtDate(date)} (DD/MM/YYYY):`);
+              if (input) {
+                // Parse DD/MM/YYYY or YYYY-MM-DD
+                let newDate = input;
+                const ddmmyyyy = input.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+                if (ddmmyyyy) {
+                  newDate = `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2,'0')}-${ddmmyyyy[1].padStart(2,'0')}`;
+                }
+                const conflicts = getConflicts(newDate);
+                if (conflicts.length > 0) {
+                  const ok = confirm(`התראה! ${fmtDate(newDate)} חופף ל:\n${conflicts.map(c=>c.text).join('\n')}\nלהמשיך?`);
+                  if (!ok) return;
+                }
+                postponeDate(evt.id, date, newDate);
+              }
+            }}
+            cancelledDates={cancelledDates[evt.id] || {}}
+            postponedDates={postponedDates[evt.id] || {}}
+            onHover={onHoverEvent}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// EVENT CARD
+// ============================================================
+function EventCard({ event, isSelected, onSelect, onEdit, onRemove, onCancelDate, onPostponeDate, cancelledDates, postponedDates, onHover }) {
+  const [expanded, setExpanded] = useState(false);
+  const [showTip, setShowTip] = useState(false);
+  const cat = CATEGORIES[event.category];
+
+  return (
+    <div
+      className={`rounded-lg border p-2 text-xs transition relative ${isSelected ? 'border-blue-500 bg-blue-50 shadow' : 'border-gray-200 bg-white hover:shadow-sm'}`}
+      onMouseEnter={() => { onHover?.(event.id); setShowTip(true); }}
+      onMouseLeave={() => { onHover?.(null); setShowTip(false); }}
+    >
+      {showTip && !expanded && event.dates.length > 0 && (
+        <div className="absolute z-50 bg-gray-900 text-white rounded-lg px-3 py-2 text-xs shadow-lg" style={{ top: '100%', right: 0, marginTop: 4, whiteSpace: 'nowrap' }}>
+          <p className="font-semibold mb-1">{event.name}</p>
+          {event.dates.map(d => (
+            <p key={d} className="text-gray-300">{fmtDate(d)}{cancelledDates[d] ? ' ❌' : ''}{postponedDates[d] ? ` → ${fmtDate(postponedDates[d])}` : ''}</p>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1 flex-1 min-w-0 text-right hover:opacity-70 transition cursor-pointer"
+        >
+          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cat?.color }}></span>
+          <span className="font-medium truncate">{event.name}</span>
+          <span className="text-gray-400">({event.dates.length})</span>
+        </button>
+        <div className="flex gap-1 flex-shrink-0">
+          <button onClick={onSelect} className="p-1 hover:bg-blue-100 rounded" title="שיבוץ">📌</button>
+          <button onClick={onEdit} className="p-1 hover:bg-gray-100 rounded" title="עריכה">✏️</button>
+          <button onClick={onRemove} className="p-1 hover:bg-red-100 rounded text-red-500" title="מחיקה">🗑️</button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          {event.notes && <p className="text-gray-500 mb-1">{event.notes}</p>}
+          {event.participants > 0 && <p className="text-gray-500">👤 {event.participants} משתתפים</p>}
+          <p className="font-medium mt-1 mb-1">תאריכים:</p>
+          {event.dates.length === 0 && <p className="text-gray-400">לא שובצו תאריכים</p>}
+          {event.dates.map(d => {
+            const isCancelled = cancelledDates[d];
+            const postponedTo = postponedDates[d];
+            return (
+              <div key={d} className={`flex items-center justify-between py-0.5 ${isCancelled ? 'line-through text-gray-400' : ''}`}>
+                <span>
+                  {fmtDate(d)} {isCancelled && '❌'} {postponedTo && `→ ${fmtDate(postponedTo)}`}
+                </span>
+                <div className="flex gap-1">
+                  {!isCancelled && !postponedTo && (
+                    <>
+                      <button onClick={() => onPostponeDate(d)} className="text-yellow-600 hover:text-yellow-800" title="דחייה">⏩</button>
+                      <button onClick={() => onCancelDate(d)} className="text-red-400 hover:text-red-600" title="ביטול">❌</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// EVENT FORM MODAL
+// ============================================================
+function EventFormModal({ editingEvent, onClose, onSave, suggestDates, getConflicts }) {
+  const [name, setName] = useState(editingEvent?.name || '');
+  const [category, setCategory] = useState(editingEvent?.category || 'other');
+  const [type, setType] = useState(editingEvent?.type || 'one-time');
+  const [participants, setParticipants] = useState(editingEvent?.participants || 0);
+  const [notes, setNotes] = useState(editingEvent?.notes || '');
+  const [dates, setDates] = useState(editingEvent?.dates?.join(', ') || '');
+  const [suggestions, setSuggestions] = useState([]);
+
+  const handleSuggest = () => {
+    const s = suggestDates(5);
+    setSuggestions(s);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-[500px] max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-bold mb-4">{editingEvent ? 'עריכת אירוע' : 'אירוע חדש'}</h2>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">שם האירוע</label>
+            <input value={name} onChange={e => setName(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="שם האירוע" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">קטגוריה</label>
+              <select value={category} onChange={e => setCategory(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm">
+                {Object.entries(CATEGORIES).map(([k, v]) => (
+                  <option key={k} value={k}>{v.icon} {v.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">סוג</label>
+              <select value={type} onChange={e => setType(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm">
+                <option value="one-time">חד-פעמי</option>
+                <option value="sequence">רצף ימים</option>
+                <option value="recurring">חוזר</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">משתתפים</label>
+            <input type="number" value={participants} onChange={e => setParticipants(Number(e.target.value))}
+              className="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">תאריכים (YYYY-MM-DD, מופרדים בפסיק)</label>
+            <textarea value={dates} onChange={e => setDates(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" rows={2}
+              placeholder="2026-10-15, 2026-11-12, ..." />
+            <button onClick={handleSuggest} className="mt-1 text-xs text-blue-600 hover:text-blue-800">💡 הצע תאריכים</button>
+          </div>
+
+          {suggestions.length > 0 && (
+            <div className="bg-blue-50 rounded-lg p-2 text-xs">
+              <p className="font-semibold mb-1">הצעות:</p>
+              {suggestions.slice(0, 8).map((s, i) => {
+                const conflicts = getConflicts(s.date);
+                return (
+                  <button key={i}
+                    onClick={() => setDates(prev => prev ? prev + ', ' + s.date : s.date)}
+                    className="block w-full text-right py-0.5 px-2 hover:bg-blue-100 rounded">
+                    {s.date} ({s.weekday}, {s.month})
+                    {conflicts.length > 0 && <span className="text-red-500 mr-1">⚠️ {conflicts[0].text}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-1">הערות</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-4 pt-3 border-t">
+          <button onClick={() => {
+            onSave({
+              name, category, type, participants, notes,
+              dates: dates.split(',').map(d => d.trim()).filter(Boolean),
+              hotel: editingEvent?.hotel || {}
+            });
+          }} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700">
+            {editingEvent ? 'עדכן' : 'צור אירוע'}
+          </button>
+          <button onClick={onClose} className="px-4 border rounded-lg py-2 text-sm hover:bg-gray-50">ביטול</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// HOTEL PANEL
+// ============================================================
+function HotelPanel({ events, setEvents }) {
+  const [selectedEvt, setSelectedEvt] = useState(null);
+  const eventsWithDates = events.filter(e => e.dates.length > 0);
+
+  const updateHotel = (eventId, field, value) => {
+    setEvents(prev => prev.map(e =>
+      e.id === eventId ? { ...e, hotel: { ...e.hotel, [field]: value } } : e
+    ));
+  };
+
+  const exportHotelList = () => {
+    const data = [['אירוע', 'תאריכים', 'אנשים', 'לילות', 'חדרים יחיד', 'חדרים זוגי', 'אזור', 'איכות', 'דרישות', 'כיבוד']];
+    events.forEach(e => {
+      if (!e.hotel || Object.keys(e.hotel).length === 0) return;
+      data.push([
+        e.name, e.dates.join(', '), e.hotel.people || '', e.hotel.nights || '',
+        e.hotel.roomsSingle || '', e.hotel.roomsDouble || '', e.hotel.area || '',
+        e.hotel.quality || '', e.hotel.requirements || '', e.hotel.catering || ''
+      ]);
+    });
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{ wch: 25 },{ wch: 30 },{ wch: 8 },{ wch: 8 },{ wch: 10 },{ wch: 10 },{ wch: 15 },{ wch: 10 },{ wch: 25 },{ wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'דרישות מלון');
+    XLSX.writeFile(wb, 'hotel-requirements.xlsx');
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="font-semibold text-sm">פרטי מלון</h3>
+        <button onClick={exportHotelList} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">
+          📥 ייצוא רשימה
+        </button>
+      </div>
+
+      {eventsWithDates.length === 0 && <p className="text-gray-400 text-sm text-center py-4">אין אירועים עם תאריכים</p>}
+
+      <div className="space-y-2">
+        {eventsWithDates.map(evt => (
+          <div key={evt.id} className="border rounded-lg overflow-hidden">
+            <button onClick={() => setSelectedEvt(selectedEvt === evt.id ? null : evt.id)}
+              className="w-full text-right px-3 py-2 text-sm font-medium bg-gray-50 hover:bg-gray-100 flex justify-between items-center">
+              <span>{CATEGORIES[evt.category]?.icon} {evt.name}</span>
+              <span className="text-gray-400">{selectedEvt === evt.id ? '▲' : '▼'}</span>
+            </button>
+            {selectedEvt === evt.id && (
+              <div className="p-3 space-y-2 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-gray-500">אנשים</label>
+                    <input type="number" value={evt.hotel?.people || ''} onChange={e => updateHotel(evt.id, 'people', Number(e.target.value))}
+                      className="w-full border rounded px-2 py-1 mt-0.5" />
+                  </div>
+                  <div>
+                    <label className="text-gray-500">לילות</label>
+                    <input type="number" value={evt.hotel?.nights || ''} onChange={e => updateHotel(evt.id, 'nights', Number(e.target.value))}
+                      className="w-full border rounded px-2 py-1 mt-0.5" />
+                  </div>
+                  <div>
+                    <label className="text-gray-500">חדרים ליחיד</label>
+                    <input type="number" value={evt.hotel?.roomsSingle || ''} onChange={e => updateHotel(evt.id, 'roomsSingle', Number(e.target.value))}
+                      className="w-full border rounded px-2 py-1 mt-0.5" />
+                  </div>
+                  <div>
+                    <label className="text-gray-500">חדרים לזוג</label>
+                    <input type="number" value={evt.hotel?.roomsDouble || ''} onChange={e => updateHotel(evt.id, 'roomsDouble', Number(e.target.value))}
+                      className="w-full border rounded px-2 py-1 mt-0.5" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-gray-500">אזור גיאוגרפי</label>
+                  <input value={evt.hotel?.area || ''} onChange={e => updateHotel(evt.id, 'area', e.target.value)}
+                    className="w-full border rounded px-2 py-1 mt-0.5" placeholder="צפון, מרכז, דרום..." />
+                </div>
+                <div>
+                  <label className="text-gray-500">איכות מלון</label>
+                  <select value={evt.hotel?.quality || '3-4'} onChange={e => updateHotel(evt.id, 'quality', e.target.value)}
+                    className="w-full border rounded px-2 py-1 mt-0.5">
+                    <option value="3">3 כוכבים</option>
+                    <option value="3-4">3-4 כוכבים (מועדף)</option>
+                    <option value="4">4 כוכבים</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-500">דרישות נוספות</label>
+                  <input value={evt.hotel?.requirements || ''} onChange={e => updateHotel(evt.id, 'requirements', e.target.value)}
+                    className="w-full border rounded px-2 py-1 mt-0.5" placeholder="אסתטי, שירות טוב..." />
+                </div>
+                <div>
+                  <label className="text-gray-500">כיבוד וארוחות</label>
+                  <input value={evt.hotel?.catering || ''} onChange={e => updateHotel(evt.id, 'catering', e.target.value)}
+                    className="w-full border rounded px-2 py-1 mt-0.5" placeholder="ארוחת בוקר, צהריים..." />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// AI PANEL
+// ============================================================
+function AiPanel({ apiKey, chatHistory, chatInput, setChatInput, sendAiMessage, isAiLoading, chatEndRef }) {
+  return (
+    <div className="flex flex-col h-full">
+      {!apiKey && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3 text-xs text-yellow-800">
+          ⚠️ נא להזין API Key בלשונית "הגדרות" כדי להשתמש בעוזר AI
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto space-y-2 mb-3 min-h-0">
+        {chatHistory.length === 0 && (
+          <div className="text-center text-gray-400 text-xs py-8">
+            <p className="text-2xl mb-2">🤖</p>
+            <p>שאל אותי כל דבר!</p>
+            <p className="mt-1 text-gray-300">לדוגמה: "שבץ פורום ארגונים בכל יום שלישי שני בחודש"</p>
+          </div>
+        )}
+        {chatHistory.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+            <div className={`chat-bubble ${msg.role === 'user' ? 'chat-user' : 'chat-ai'}`}
+              style={{ whiteSpace: 'pre-wrap' }}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {isAiLoading && (
+          <div className="flex justify-end">
+            <div className="chat-bubble chat-ai">
+              <span className="animate-pulse">⏳ חושב...</span>
+            </div>
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      <div className="flex gap-2">
+        <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) sendAiMessage(chatInput.trim()); }}
+          className="flex-1 border rounded-lg px-3 py-2 text-sm" placeholder="הקלד הודעה..."
+          disabled={isAiLoading || !apiKey} />
+        <button onClick={() => { if (chatInput.trim()) sendAiMessage(chatInput.trim()); }}
+          disabled={isAiLoading || !apiKey || !chatInput.trim()}
+          className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50 hover:bg-blue-700">
+          שלח
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// SETTINGS PANEL
+// ============================================================
+function SettingsPanel({ apiKey, setApiKey, saveProject, loadProject, exportToExcel, exportForRashel, blockedDays, unblockDay, customHolidays, removeCustomHoliday }) {
+  return (
+    <div className="space-y-4">
+      {/* API Key */}
+      <div>
+        <h3 className="font-semibold text-sm mb-2">🔑 API Key (Anthropic)</h3>
+        <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="sk-ant-..." />
+        <p className="text-xs text-gray-400 mt-1">נשמר ב-localStorage בלבד</p>
+      </div>
+
+      {/* Project actions */}
+      <div>
+        <h3 className="font-semibold text-sm mb-2">💾 פרויקט</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={saveProject} className="bg-green-100 text-green-700 rounded-lg py-2 text-sm hover:bg-green-200 transition font-medium">
+            📥 שמור פרויקט
+          </button>
+          <button onClick={loadProject} className="bg-blue-100 text-blue-700 rounded-lg py-2 text-sm hover:bg-blue-200 transition font-medium">
+            📤 טען פרויקט
+          </button>
+          <button onClick={exportToExcel} className="col-span-2 bg-purple-100 text-purple-700 rounded-lg py-2 text-sm hover:bg-purple-200 transition font-medium">
+            📊 ייצוא לאקסל
+          </button>
+          <button onClick={exportForRashel} className="col-span-2 bg-indigo-100 text-indigo-700 rounded-lg py-2 text-sm hover:bg-indigo-200 transition font-medium">
+            📋 ייצוא אירועים לרשל
+          </button>
+        </div>
+      </div>
+
+      {/* Blocked days */}
+      <div>
+        <h3 className="font-semibold text-sm mb-2">🚫 ימים חסומים</h3>
+        {Object.keys(blockedDays).length === 0 && <p className="text-gray-400 text-xs">אין ימים חסומים (Shift+לחיצה על תא)</p>}
+        <div className="space-y-1">
+          {Object.entries(blockedDays).sort().map(([date, reason]) => (
+            <div key={date} className="flex justify-between items-center text-xs bg-red-50 rounded px-2 py-1">
+              <span>{date}: {reason}</span>
+              <button onClick={() => unblockDay(date)} className="text-red-500 hover:text-red-700">✕</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom holidays */}
+      <div>
+        <h3 className="font-semibold text-sm mb-2">📅 חגים ידניים</h3>
+        {Object.keys(customHolidays).length === 0 && <p className="text-gray-400 text-xs">אין חגים ידניים (Ctrl+לחיצה על תא)</p>}
+        <div className="space-y-1">
+          {Object.entries(customHolidays).sort().map(([date, hol]) => (
+            <div key={date} className="flex justify-between items-center text-xs bg-green-50 rounded px-2 py-1">
+              <span>{date}: {hol.name}</span>
+              <button onClick={() => removeCustomHoliday(date)} className="text-red-500 hover:text-red-700">✕</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+        <p className="font-semibold text-gray-600">📖 הוראות שימוש:</p>
+        <p>• בחר אירוע בצד ← לחץ על תא בגאנט לשיבוץ</p>
+        <p>• <kbd className="bg-gray-200 px-1 rounded">Shift</kbd>+לחיצה = חסום/בטל חסימה</p>
+        <p>• <kbd className="bg-gray-200 px-1 rounded">Ctrl</kbd>+לחיצה = הוסף חג ידני</p>
+        <p>• רחף על תא לראות פרטים</p>
+        <p>• השתמש בעוזר AI לשיבוץ חכם</p>
+        <p>• ⏩ = דחייה | ❌ = ביטול תאריך</p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// RENDER APP
+// ============================================================
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

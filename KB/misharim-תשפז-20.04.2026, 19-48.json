@@ -1,0 +1,155 @@
+{
+  "version": "1.0",
+  "savedAt": "20.04.2026, 19:48",
+  "savedAtISO": "2026-04-20T16:48:38.044Z",
+  "hebrewYear": 5787,
+  "events": [
+    {
+      "id": "evt_mo65lcgr_1",
+      "name": "חג הסיגד",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo66j8si_2",
+      "name": "שושן פורים",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo67l4tt_3",
+      "name": "גשר",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo67so65_4",
+      "name": "חג הנביא שועייב",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [
+        "2027-04-24",
+        "2027-04-25",
+        "2027-04-26",
+        "2027-04-27"
+      ],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo67yspd_5",
+      "name": "חופשת חורף-חברה ערבית",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-26",
+        "2026-12-27",
+        "2026-12-28",
+        "2026-12-29",
+        "2026-12-30",
+        "2026-12-31"
+      ],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo681g8a_6",
+      "name": "חופשת אביב חברה ערבית",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [
+        "2027-03-28",
+        "2027-03-29",
+        "2027-03-30",
+        "2027-03-31"
+      ],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo683usi_7",
+      "name": "לילת אל איסרא",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo688tvn_8",
+      "name": "חופשת חורף חברה דרוזית",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [
+        "2026-12-23",
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-26",
+        "2026-12-27",
+        "2026-12-28",
+        "2026-12-29",
+        "2026-12-30",
+        "2026-12-31"
+      ],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo68adjf_9",
+      "name": "חופשת אביב חברה דרוזית",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [
+        "2027-04-16",
+        "2027-04-17",
+        "2027-04-18",
+        "2027-04-19",
+        "2027-04-20",
+        "2027-04-21",
+        "2027-04-22",
+        "2027-04-23"
+      ],
+      "hotel": {}
+    },
+    {
+      "id": "evt_mo68cz5f_10",
+      "name": "חג המולד",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [],
+      "hotel": {}
+    }
+  ],
+  "blockedDays": {},
+  "customHolidays": {},
+  "cancelledDates": {
+    "evt_mo65lcgr_1": {
+      "2026-11-08": true,
+      "2026-11-09": true
+    }
+  },
+  "postponedDates": {}
+}

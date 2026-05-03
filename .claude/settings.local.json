@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -c:*)",
+      "Bash(python create_gantt.py:*)",
+      "Bash(python:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(mkdir -p /tmp/misharim)",
+      "Bash(cp \"C:\\\\Users\\\\Shahar Tabib\\\\OneDrive - Sliceknowledge.com\\\\Slice\\\\שתפים\\\\מישרים\\\\רות זהר גאנט תשפז\\\\misharim-scheduler.html\" /tmp/misharim/index.html)",
+      "WebSearch",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:www.jsdelivr.com)",
+      "WebFetch(domain:unpkg.com)",
+      "WebFetch(domain:esm.sh)",
+      "Bash(gh repo *)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
