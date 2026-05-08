@@ -323,7 +323,8 @@ async function ghFetchData() {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`GitHub fetch failed: ${res.status}`);
   const json = await res.json();
-  const content = atob(json.content.replace(/\n/g, ''));
+  const bytes = Uint8Array.from(atob(json.content.replace(/\n/g, '')), c => c.charCodeAt(0));
+  const content = new TextDecoder('utf-8').decode(bytes);
   return { data: JSON.parse(content), sha: json.sha };
 }
 
