@@ -1346,7 +1346,7 @@ ${blockedSummary || 'אין ימים חסומים'}
         const evt = addEvent({
           name: toolInput.name,
           category: toolInput.category || 'other',
-          type: 'one-time',
+          type: (toolInput.dates?.length || 0) > 1 ? 'recurring' : 'one-time',
           dates: toolInput.dates || [],
           participants: toolInput.participants || 0,
           notes: toolInput.notes || '',
@@ -2728,8 +2728,9 @@ function EventFormModal({ editingEvent, initialDates, onClose, onSave, suggestDa
         {/* Save / Cancel */}
         <div className="flex gap-2 mt-4 pt-3 border-t">
           <button onClick={() => {
+            const autoType = selectedDates.length > 1 && type === 'one-time' ? 'recurring' : type;
             onSave({
-              name, category, type, participants, notes,
+              name, category, type: autoType, participants, notes,
               dates: selectedDates,
               hotel: editingEvent?.hotel || {}
             });
