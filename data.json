@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "savedAt": "08.05.2026, 14:49",
-  "savedAtISO": "2026-05-08T11:49:21.166Z",
+  "savedAtISO": "2026-05-08T11:49:28.982Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -73,16 +73,6 @@
         "2027-08-04"
       ],
       "participants": 30,
-      "notes": "",
-      "hotel": {}
-    },
-    {
-      "id": "evt_mowue43q_1",
-      "name": "שחר",
-      "category": "other",
-      "type": "one-time",
-      "dates": [],
-      "participants": 2,
       "notes": "",
       "hotel": {}
     }
