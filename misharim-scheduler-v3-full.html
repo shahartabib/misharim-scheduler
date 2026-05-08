@@ -540,6 +540,9 @@ function App() {
   const [cellNotes, setCellNotes] = useState({}); // {date: "הערה"}
   const [showCellNoteDialog, setShowCellNoteDialog] = useState(false);
   const [cellNoteInput, setCellNoteInput] = useState('');
+  const [hiddenHolidays, setHiddenHolidays] = useState({}); // {"date_name": true}
+  const [showDayDialog, setShowDayDialog] = useState(false);
+  const [dayDialogDate, setDayDialogDate] = useState(null);
   const [draggedEvent, setDraggedEvent] = useState(null); // {eventId, sourceDate}
   const chatEndRef = useRef(null);
 
@@ -548,15 +551,20 @@ function App() {
   const yearData = useMemo(() => generateYearData(gregStartYear), [gregStartYear]);
   const holidays = useMemo(() => generateHolidays(gregStartYear), [gregStartYear]);
 
-  // Merge custom holidays
+  // Merge custom holidays, filter hidden
   const allHolidays = useMemo(() => {
-    const merged = { ...holidays };
+    const merged = {};
+    for (const [date, hols] of Object.entries(holidays)) {
+      const filtered = hols.filter(h => !hiddenHolidays[`${date}_${h.name}`]);
+      if (filtered.length) merged[date] = filtered;
+    }
     for (const [key, val] of Object.entries(customHolidays)) {
+      if (hiddenHolidays[`${key}_${val.name}`]) continue;
       if (!merged[key]) merged[key] = [];
       merged[key] = [...merged[key], { name: val.name, type: val.type || 'custom' }];
     }
     return merged;
-  }, [holidays, customHolidays]);
+  }, [holidays, customHolidays, hiddenHolidays]);
 
   // Load: fetch from GitHub, fallback to localStorage
   useEffect(() => {
@@ -573,6 +581,7 @@ function App() {
       if (data.cancelledDates) setCancelledDates(data.cancelledDates);
       if (data.postponedDates) setPostponedDates(data.postponedDates);
       if (data.cellNotes) setCellNotes(data.cellNotes);
+      if (data.hiddenHolidays) setHiddenHolidays(data.hiddenHolidays);
       if (data.apiKey) setApiKey(data.apiKey);
     }
 
@@ -603,7 +612,7 @@ function App() {
 
   // Auto-save
   useEffect(() => {
-    const data = { hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, apiKey, cellNotes };
+    const data = { hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, apiKey, cellNotes, hiddenHolidays };
     localStorage.setItem('misharim_project', JSON.stringify(data));
   }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, apiKey, cellNotes]);
 
@@ -847,7 +856,7 @@ function App() {
       version: '1.0',
       savedAt: timestamp,
       savedAtISO: new Date().toISOString(),
-      hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes
+      hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, hiddenHolidays
     };
 
     // Always save to localStorage as backup
@@ -876,7 +885,7 @@ function App() {
       setSyncStatus('error');
       alert(`שגיאה בסנכרון: ${err.message}\nהנתונים נשמרו מקומית.`);
     }
-  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, ghToken, ghSha]);
+  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, hiddenHolidays, ghToken, ghSha]);
 
   // Refresh from GitHub (pull latest)
   const refreshFromGithub = useCallback(async () => {
@@ -913,7 +922,7 @@ function App() {
         version: '1.0',
         savedAt: new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' }),
         savedAtISO: new Date().toISOString(),
-        hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes
+        hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, hiddenHolidays
       };
       localStorage.setItem('misharim_project', JSON.stringify(localData));
       const remote = await ghFetchData();
@@ -924,7 +933,7 @@ function App() {
     } catch {
       setSyncStatus('error');
     }
-  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, ghToken, ghSha]);
+  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, hiddenHolidays, ghToken, ghSha]);
 
   // Debounced auto-sync when pendingSync is flagged
   useEffect(() => {
@@ -934,7 +943,7 @@ function App() {
       autoSync();
     }, 800);
     return () => clearTimeout(timer);
-  }, [events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, autoSync]);
+  }, [events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, hiddenHolidays, autoSync]);
 
   const loadProject = useCallback(() => {
     const input = document.createElement('input');
@@ -1601,26 +1610,38 @@ ${blockedSummary || 'אין ימים חסומים'}
     setCellNoteInput('');
   }, [selectedCell, cellNoteInput]);
 
-  // Double-click on calendar cell → open new event form with date(s)
+  // Double-click on calendar cell → open day manager or new event form
   const handleCellDoubleClick = useCallback((date) => {
     if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
-    const start = rangeStartRef.current;
-    if (start && start !== date) {
-      const d1 = new Date(start), d2 = new Date(date);
-      const lo = d1 < d2 ? d1 : d2, hi = d1 < d2 ? d2 : d1;
-      const dates = [];
-      for (let d = new Date(lo); d <= hi; d.setDate(d.getDate() + 1)) {
-        dates.push(d.toISOString().split('T')[0]);
-      }
-      setFormInitialDates(dates);
+    const dayHolidays = allHolidays[date] || [];
+    const dayEvents = events.filter(e => e.dates?.includes(date));
+    const dayNote = cellNotes[date];
+    const dayBlock = blockedDays[date];
+    const hasContent = dayHolidays.length > 0 || dayEvents.length > 0 || dayNote || dayBlock;
+
+    if (hasContent) {
+      setDayDialogDate(date);
+      setCellNoteInput(cellNotes[date] || '');
+      setShowDayDialog(true);
     } else {
-      setFormInitialDates([date]);
+      const start = rangeStartRef.current;
+      if (start && start !== date) {
+        const d1 = new Date(start), d2 = new Date(date);
+        const lo = d1 < d2 ? d1 : d2, hi = d1 < d2 ? d2 : d1;
+        const dates = [];
+        for (let d = new Date(lo); d <= hi; d.setDate(d.getDate() + 1)) {
+          dates.push(d.toISOString().split('T')[0]);
+        }
+        setFormInitialDates(dates);
+      } else {
+        setFormInitialDates([date]);
+      }
+      rangeStartRef.current = null;
+      setEditingEvent(null);
+      setShowEventForm(true);
+      setSelectedCell(null);
     }
-    rangeStartRef.current = null;
-    setEditingEvent(null);
-    setShowEventForm(true);
-    setSelectedCell(null);
-  }, []);
+  }, [allHolidays, events, cellNotes, blockedDays]);
 
   // Handle drag and drop
   const handleDragStart = useCallback((e, eventId) => {
@@ -1740,6 +1761,8 @@ ${blockedSummary || 'אין ימים חסומים'}
               unblockDay={unblockDay}
               customHolidays={customHolidays}
               removeCustomHoliday={removeCustomHoliday}
+              hiddenHolidays={hiddenHolidays}
+              setHiddenHolidays={setHiddenHolidays}
             />
           )}
         </div>
@@ -1816,6 +1839,127 @@ ${blockedSummary || 'אין ימים חסומים'}
           getConflicts={getConflicts}
         />
       )}
+
+      {/* Day Manager Dialog */}
+      {showDayDialog && dayDialogDate && (() => {
+        const dHols = allHolidays[dayDialogDate] || [];
+        const dRawHols = holidays[dayDialogDate] || [];
+        const dCustomHols = customHolidays[dayDialogDate] ? [{ name: customHolidays[dayDialogDate].name, type: customHolidays[dayDialogDate].type || 'custom' }] : [];
+        const dAllHols = [...dRawHols.filter(h => !hiddenHolidays[`${dayDialogDate}_${h.name}`]), ...dCustomHols.filter(h => !hiddenHolidays[`${dayDialogDate}_${h.name}`])];
+        const dHiddenHols = [...(holidays[dayDialogDate] || []).filter(h => hiddenHolidays[`${dayDialogDate}_${h.name}`])];
+        const dEvents = events.filter(e => e.dates?.includes(dayDialogDate));
+        const dNote = cellNotes[dayDialogDate];
+        const dBlock = blockedDays[dayDialogDate];
+        return (
+        <div className="fixed inset-0 bg-black/50 z-100 flex items-center justify-center" onClick={() => setShowDayDialog(false)}>
+          <div className="bg-white rounded-xl max-w-lg w-[95%] max-h-[85vh] overflow-y-auto shadow-xl" dir="rtl" onClick={e => e.stopPropagation()}>
+            <div className="p-5">
+              <h2 className="text-lg font-bold mb-1">ניהול יום — {fmtDate(dayDialogDate)}</h2>
+              <p className="text-gray-400 text-xs mb-4">{parseDate(dayDialogDate).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+
+              {/* Holidays section */}
+              {(dAllHols.length > 0 || dHiddenHols.length > 0) && (
+                <div className="mb-4">
+                  <h3 className="font-semibold text-sm mb-2 text-amber-700">חגים וימים מיוחדים</h3>
+                  <div className="space-y-1">
+                    {dAllHols.map((h, i) => (
+                      <div key={i} className="flex justify-between items-center text-sm bg-amber-50 rounded-lg px-3 py-2">
+                        <span>{h.name} <span className="text-xs text-gray-400">({h.type === 'jewish' ? 'יהודי' : h.type === 'arab' ? 'ערבי' : h.type === 'druze' ? 'דרוזי' : h.type === 'memorial' ? 'זיכרון' : h.type === 'islamic' ? 'מוסלמי' : 'ידני'})</span></span>
+                        <button onClick={() => {
+                          setHiddenHolidays(prev => ({ ...prev, [`${dayDialogDate}_${h.name}`]: true }));
+                          pendingSync.current = true;
+                        }} className="text-red-400 hover:text-red-600 text-xs px-2 py-0.5 rounded hover:bg-red-50" title="הסתר חג">הסתר</button>
+                      </div>
+                    ))}
+                    {dHiddenHols.map((h, i) => (
+                      <div key={`hid-${i}`} className="flex justify-between items-center text-sm bg-gray-50 rounded-lg px-3 py-2 opacity-60">
+                        <span className="line-through">{h.name}</span>
+                        <button onClick={() => {
+                          setHiddenHolidays(prev => { const n = { ...prev }; delete n[`${dayDialogDate}_${h.name}`]; return n; });
+                          pendingSync.current = true;
+                        }} className="text-green-500 hover:text-green-700 text-xs px-2 py-0.5 rounded hover:bg-green-50">החזר</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Events section */}
+              {dEvents.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="font-semibold text-sm mb-2 text-blue-700">אירועים</h3>
+                  <div className="space-y-1">
+                    {dEvents.map(evt => (
+                      <div key={evt.id} className="flex justify-between items-center text-sm bg-blue-50 rounded-lg px-3 py-2">
+                        <span>{evt.name}</span>
+                        <div className="flex gap-1">
+                          <button onClick={() => {
+                            setShowDayDialog(false);
+                            setEditingEvent(evt);
+                            setShowEventForm(true);
+                          }} className="text-blue-500 hover:text-blue-700 text-xs px-2 py-0.5 rounded hover:bg-blue-100">עריכה</button>
+                          <button onClick={() => {
+                            setEvents(prev => prev.map(e =>
+                              e.id === evt.id ? { ...e, dates: e.dates.filter(d => d !== dayDialogDate) } : e
+                            ));
+                            pendingSync.current = true;
+                          }} className="text-red-400 hover:text-red-600 text-xs px-2 py-0.5 rounded hover:bg-red-50">הסר מתאריך</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Block section */}
+              {dBlock && (
+                <div className="mb-4">
+                  <h3 className="font-semibold text-sm mb-2 text-red-700">חסימה</h3>
+                  <div className="flex justify-between items-center text-sm bg-red-50 rounded-lg px-3 py-2">
+                    <span>{dBlock}</span>
+                    <button onClick={() => { unblockDay(dayDialogDate); }} className="text-red-500 hover:text-red-700 text-xs px-2 py-0.5 rounded hover:bg-red-100">הסר חסימה</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Note section */}
+              <div className="mb-4">
+                <h3 className="font-semibold text-sm mb-2 text-gray-700">הערה</h3>
+                <textarea value={cellNoteInput} onChange={e => setCellNoteInput(e.target.value)}
+                  placeholder="הזן הערה או מידע..."
+                  className="w-full h-20 p-3 border border-gray-200 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => {
+                    if (cellNoteInput.trim()) {
+                      setCellNotes(prev => ({ ...prev, [dayDialogDate]: cellNoteInput }));
+                    } else {
+                      setCellNotes(prev => { const n = { ...prev }; delete n[dayDialogDate]; return n; });
+                    }
+                    pendingSync.current = true;
+                  }} className="text-xs bg-blue-100 text-blue-700 rounded px-3 py-1 hover:bg-blue-200">שמור הערה</button>
+                  {dNote && <button onClick={() => {
+                    setCellNotes(prev => { const n = { ...prev }; delete n[dayDialogDate]; return n; });
+                    setCellNoteInput('');
+                    pendingSync.current = true;
+                  }} className="text-xs bg-red-50 text-red-500 rounded px-3 py-1 hover:bg-red-100">מחק הערה</button>}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-3 border-t">
+                <button onClick={() => {
+                  setShowDayDialog(false);
+                  setFormInitialDates([dayDialogDate]);
+                  setEditingEvent(null);
+                  setShowEventForm(true);
+                }} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 transition">+ אירוע חדש</button>
+                <button onClick={() => setShowDayDialog(false)} className="flex-1 bg-gray-100 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-200 transition">סגור</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
 
       {/* Cell Note Dialog */}
       {showCellNoteDialog && selectedCell && (
@@ -1944,8 +2088,9 @@ function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate
 
                 return (
                   <div key={`hol-${day.date}`}
-                    className={`gantt-cell ${bgClass} ${day.isFriday && !hols ? 'friday' : ''} ${day.isShabbat && !hols ? 'shabbat' : ''}`}
-                    title={hols?.map(h => h.name).join(', ')}>
+                    className={`gantt-cell ${bgClass} ${day.isFriday && !hols ? 'friday' : ''} ${day.isShabbat && !hols ? 'shabbat' : ''} ${hols ? 'cursor-pointer' : ''}`}
+                    title={hols?.map(h => h.name).join(', ')}
+                    onDoubleClick={hols ? (e) => { e.stopPropagation(); handleCellDoubleClick(day.date); } : undefined}>
                     <span className="holiday-text">{hols?.[0]?.name || ''}</span>
                   </div>
                 );
@@ -2785,7 +2930,7 @@ function AiPanel({ apiKey, chatHistory, chatInput, setChatInput, sendAiMessage, 
 // ============================================================
 // SETTINGS PANEL
 // ============================================================
-function SettingsPanel({ apiKey, setApiKey, ghToken, setGhToken, syncStatus, lastSync, saveProject, loadProject, refreshFromGithub, exportToExcel, exportForRashel, blockedDays, unblockDay, customHolidays, removeCustomHoliday }) {
+function SettingsPanel({ apiKey, setApiKey, ghToken, setGhToken, syncStatus, lastSync, saveProject, loadProject, refreshFromGithub, exportToExcel, exportForRashel, blockedDays, unblockDay, customHolidays, removeCustomHoliday, hiddenHolidays, setHiddenHolidays }) {
   const syncLabels = {
     idle: { text: 'ממתין', color: 'gray' },
     loading: { text: 'טוען...', color: 'blue' },
@@ -2875,14 +3020,35 @@ function SettingsPanel({ apiKey, setApiKey, ghToken, setGhToken, syncStatus, las
         </div>
       </div>
 
+      {/* Hidden holidays */}
+      {Object.keys(hiddenHolidays).length > 0 && (
+      <div>
+        <h3 className="font-semibold text-sm mb-2">👁 חגים מוסתרים</h3>
+        <div className="space-y-1">
+          {Object.keys(hiddenHolidays).sort().map(key => {
+            const [date, ...rest] = key.split('_');
+            const name = rest.join('_');
+            return (
+              <div key={key} className="flex justify-between items-center text-xs bg-yellow-50 rounded px-2 py-1">
+                <span>{date}: {name}</span>
+                <button onClick={() => setHiddenHolidays(prev => { const n = { ...prev }; delete n[key]; return n; })} className="text-green-500 hover:text-green-700">החזר</button>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={() => setHiddenHolidays({})} className="mt-1 text-xs text-blue-500 hover:text-blue-700">החזר הכל</button>
+      </div>
+      )}
+
       {/* Instructions */}
       <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
         <p className="font-semibold text-gray-600">📖 הוראות שימוש:</p>
+        <p>• <strong>דבל קליק</strong> על תא = ניהול יום (חגים/אירועים/הערות/חסימות)</p>
+        <p>• <strong>דבל קליק</strong> על תא ריק = אירוע חדש</p>
         <p>• בחר אירוע בצד ← לחץ על תא בגאנט לשיבוץ</p>
         <p>• <kbd className="bg-gray-200 px-1 rounded">Shift</kbd>+לחיצה = חסום/בטל חסימה</p>
         <p>• <kbd className="bg-gray-200 px-1 rounded">Ctrl</kbd>+לחיצה = הוסף חג ידני</p>
         <p>• רחף על תא לראות פרטים</p>
-        <p>• השתמש בעוזר AI לשיבוץ חכם</p>
         <p>• ⏩ = דחייה | ❌ = ביטול תאריך</p>
       </div>
     </div>
