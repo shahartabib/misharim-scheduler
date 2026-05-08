@@ -1941,6 +1941,12 @@ ${blockedSummary || 'אין ימים חסומים'}
                             ));
                             pendingSync.current = true;
                           }} className="text-red-400 hover:text-red-600 text-xs px-2 py-0.5 rounded hover:bg-red-50">הסר מתאריך</button>
+                          <button onClick={() => {
+                            if (confirm(`למחוק את האירוע "${evt.name}" לגמרי?`)) {
+                              removeEvent(evt.id);
+                              setShowDayDialog(false);
+                            }
+                          }} className="text-red-600 hover:text-red-800 text-xs px-2 py-0.5 rounded hover:bg-red-100">מחק</button>
                         </div>
                       </div>
                     ))}
