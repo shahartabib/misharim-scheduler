@@ -558,6 +558,8 @@ function App() {
   useEffect(() => {
     const savedToken = localStorage.getItem('misharim_gh_token');
     if (savedToken) setGhToken(savedToken);
+    const savedApiKey = localStorage.getItem('misharim_api_key');
+    if (savedApiKey) setApiKey(savedApiKey);
 
     function applyData(data) {
       if (data.hebrewYear) setHebrewYear(data.hebrewYear);
@@ -1655,7 +1657,7 @@ ${blockedSummary || 'אין ימים חסומים'}
           {activePanel === 'settings' && (
             <SettingsPanel
               apiKey={apiKey}
-              setApiKey={setApiKey}
+              setApiKey={(k) => { setApiKey(k); localStorage.setItem('misharim_api_key', k); }}
               ghToken={ghToken}
               setGhToken={(t) => { setGhToken(t); localStorage.setItem('misharim_gh_token', t); }}
               syncStatus={syncStatus}
