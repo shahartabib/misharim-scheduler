@@ -530,6 +530,7 @@ function App() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [formInitialDates, setFormInitialDates] = useState(null);
   const [selectedCell, setSelectedCell] = useState(null);
   const [tooltip, setTooltip] = useState(null);
   const [hoveredEventId, setHoveredEventId] = useState(null); // for Gantt highlight
@@ -1598,6 +1599,24 @@ ${blockedSummary || 'אין ימים חסומים'}
     setCellNoteInput('');
   }, [selectedCell, cellNoteInput]);
 
+  // Double-click on calendar cell → open new event form with date(s)
+  const handleCellDoubleClick = useCallback((date) => {
+    if (selectedCell && selectedCell !== date) {
+      const d1 = new Date(selectedCell), d2 = new Date(date);
+      const start = d1 < d2 ? d1 : d2, end = d1 < d2 ? d2 : d1;
+      const dates = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0]);
+      }
+      setFormInitialDates(dates);
+    } else {
+      setFormInitialDates([date]);
+    }
+    setEditingEvent(null);
+    setShowEventForm(true);
+    setSelectedCell(null);
+  }, [selectedCell]);
+
   // Handle drag and drop
   const handleDragStart = useCallback((e, eventId) => {
     setDraggedEvent({ eventId, sourceDate: null });
@@ -1733,7 +1752,7 @@ ${blockedSummary || 'אין ימים חסומים'}
             <span className="inline-block w-4 h-4 rounded border border-red-300" style={{background:'repeating-linear-gradient(45deg, transparent, transparent 2px, #ff000015 2px, #ff000015 4px)'}}></span><span>חסום</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">Shift+לחיצה = חסום | Ctrl+לחיצה = חג ידני</span>
+            <span className="text-xs text-gray-400">דבל קליק = אירוע חדש | Shift+לחיצה = חסום | Ctrl+לחיצה = חג ידני</span>
             <select value={viewMode} onChange={e => setViewMode(e.target.value === 'year' ? 'year' : Number(e.target.value))}
               className="border rounded px-2 py-1 text-xs bg-white">
               <option value="year">תצוגה שנתית</option>
@@ -1762,6 +1781,7 @@ ${blockedSummary || 'אין ימים חסומים'}
             isMonthlyView={viewMode !== 'year'}
             cellNotes={cellNotes}
             handleOpenCellNoteDialog={handleOpenCellNoteDialog}
+            handleCellDoubleClick={handleCellDoubleClick}
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
             draggedEvent={draggedEvent}
@@ -1773,7 +1793,8 @@ ${blockedSummary || 'אין ימים חסומים'}
       {showEventForm && (
         <EventFormModal
           editingEvent={editingEvent}
-          onClose={() => { setShowEventForm(false); setEditingEvent(null); }}
+          initialDates={formInitialDates}
+          onClose={() => { setShowEventForm(false); setEditingEvent(null); setFormInitialDates(null); }}
           onSave={(data) => {
             if (editingEvent) {
               setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...data } : e));
@@ -1832,7 +1853,7 @@ ${blockedSummary || 'אין ימים חסומים'}
 // ============================================================
 // MONTH BLOCK COMPONENT
 // ============================================================
-function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate, handleCellClick, selectedCell, cancelledDates, postponedDates, events, setTooltip, hoveredEventId, isMonthlyView, cellNotes, handleOpenCellNoteDialog, handleDragOver, handleDrop, draggedEvent }) {
+function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate, handleCellClick, selectedCell, cancelledDates, postponedDates, events, setTooltip, hoveredEventId, isMonthlyView, cellNotes, handleOpenCellNoteDialog, handleCellDoubleClick, handleDragOver, handleDrop, draggedEvent }) {
   const maxEventsInMonth = useMemo(() => {
     let max = 0;
     for (const day of month.days) {
@@ -1876,7 +1897,7 @@ function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate
                 <div key={`greg-${day.date}`}
                   className={`gantt-cell text-xs font-medium ${day.isFriday ? 'friday' : ''} ${day.isShabbat ? 'shabbat' : ''} ${blockedDays[day.date] ? 'blocked' : ''} ${highlightDates.has(day.date) ? 'highlight-event' : ''} ${cellNotes[day.date] ? 'has-note' : ''} ${draggedEvent ? 'cursor-copy' : ''}`}
                   onClick={(e) => handleCellClick(day.date, e)}
-                  onDoubleClick={(e) => { e.stopPropagation(); handleOpenCellNoteDialog(day.date); }}
+                  onDoubleClick={(e) => { e.stopPropagation(); handleCellDoubleClick(day.date); }}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, day.date)}
                   onMouseEnter={(e) => {
@@ -1936,7 +1957,8 @@ function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate
                     return (
                       <div key={`evt-${day.date}-${rowIdx}`}
                         className={`gantt-cell ${day.isFriday ? 'friday' : ''} ${day.isShabbat ? 'shabbat' : ''} ${blockedDays[day.date] ? 'blocked' : ''} ${selectedCell === day.date ? 'ring-2 ring-blue-500' : ''}`}
-                        onClick={(e) => handleCellClick(day.date, e)}>
+                        onClick={(e) => handleCellClick(day.date, e)}
+                        onDoubleClick={(e) => { e.stopPropagation(); handleCellDoubleClick(day.date); }}>
                       </div>
                     );
                   }
@@ -2143,7 +2165,7 @@ function parseDateInput(input) {
 // ============================================================
 // EVENT FORM MODAL (Enhanced with recurring support)
 // ============================================================
-function EventFormModal({ editingEvent, onClose, onSave, suggestDates, suggestRecurringSeries, parseRecurrenceText, getConflicts }) {
+function EventFormModal({ editingEvent, initialDates, onClose, onSave, suggestDates, suggestRecurringSeries, parseRecurrenceText, getConflicts }) {
   const [name, setName] = useState(editingEvent?.name || '');
   const [category, setCategory] = useState(editingEvent?.category || 'other');
   const [type, setType] = useState(editingEvent?.type || 'one-time');
@@ -2151,7 +2173,7 @@ function EventFormModal({ editingEvent, onClose, onSave, suggestDates, suggestRe
   const [notes, setNotes] = useState(editingEvent?.notes || '');
 
   // Selected dates (YYYY-MM-DD strings)
-  const [selectedDates, setSelectedDates] = useState(editingEvent?.dates || []);
+  const [selectedDates, setSelectedDates] = useState(editingEvent?.dates || initialDates || []);
 
   // Recurring config
   const [meetingCount, setMeetingCount] = useState(editingEvent?.dates?.length || 3);
