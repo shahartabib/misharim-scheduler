@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "08.05.2026, 13:50",
-  "savedAtISO": "2026-05-08T10:50:11.870Z",
+  "savedAt": "08.05.2026, 13:56",
+  "savedAtISO": "2026-05-08T10:56:54.351Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -73,6 +73,18 @@
         "2027-08-04"
       ],
       "participants": 30,
+      "notes": "",
+      "hotel": {}
+    },
+    {
+      "id": "evt_mowsvqci_1",
+      "name": "שחר",
+      "category": "seminar",
+      "type": "one-time",
+      "dates": [
+        "2026-10-06"
+      ],
+      "participants": 2,
       "notes": "",
       "hotel": {}
     }
