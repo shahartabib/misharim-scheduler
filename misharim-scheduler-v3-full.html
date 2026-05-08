@@ -543,6 +543,7 @@ function App() {
   const [hiddenHolidays, setHiddenHolidays] = useState({}); // {"date_name": true}
   const [showDayDialog, setShowDayDialog] = useState(false);
   const [dayDialogDate, setDayDialogDate] = useState(null);
+  const [editingHoliday, setEditingHoliday] = useState(null); // {origDate, origName, origType, newName, newDate}
   const [draggedEvent, setDraggedEvent] = useState(null); // {eventId, sourceDate}
   const chatEndRef = useRef(null);
 
@@ -1851,7 +1852,7 @@ ${blockedSummary || 'אין ימים חסומים'}
         const dNote = cellNotes[dayDialogDate];
         const dBlock = blockedDays[dayDialogDate];
         return (
-        <div className="fixed inset-0 bg-black/50 z-100 flex items-center justify-center" onClick={() => setShowDayDialog(false)}>
+        <div className="fixed inset-0 bg-black/50 z-100 flex items-center justify-center" onClick={() => { setShowDayDialog(false); setEditingHoliday(null); }}>
           <div className="bg-white rounded-xl max-w-lg w-[95%] max-h-[85vh] overflow-y-auto shadow-xl" dir="rtl" onClick={e => e.stopPropagation()}>
             <div className="p-5">
               <h2 className="text-lg font-bold mb-1">ניהול יום — {fmtDate(dayDialogDate)}</h2>
@@ -1861,16 +1862,52 @@ ${blockedSummary || 'אין ימים חסומים'}
               {(dAllHols.length > 0 || dHiddenHols.length > 0) && (
                 <div className="mb-4">
                   <h3 className="font-semibold text-sm mb-2 text-amber-700">חגים וימים מיוחדים</h3>
-                  <div className="space-y-1">
-                    {dAllHols.map((h, i) => (
+                  <div className="space-y-2">
+                    {dAllHols.map((h, i) => {
+                      const holKey = `${dayDialogDate}_${h.name}`;
+                      const isEditing = editingHoliday?.origDate === dayDialogDate && editingHoliday?.origName === h.name;
+                      if (isEditing) return (
+                        <div key={i} className="text-sm bg-amber-50 rounded-lg px-3 py-3 space-y-2 border border-amber-200">
+                          <div className="flex gap-2 items-center">
+                            <label className="text-xs text-gray-500 w-10">שם:</label>
+                            <input value={editingHoliday.newName} onChange={e => setEditingHoliday(prev => ({ ...prev, newName: e.target.value }))}
+                              className="flex-1 border rounded px-2 py-1 text-sm" />
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <label className="text-xs text-gray-500 w-10">תאריך:</label>
+                            <input type="date" value={editingHoliday.newDate} onChange={e => setEditingHoliday(prev => ({ ...prev, newDate: e.target.value }))}
+                              className="flex-1 border rounded px-2 py-1 text-sm" />
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => {
+                              const eh = editingHoliday;
+                              setHiddenHolidays(prev => ({ ...prev, [`${eh.origDate}_${eh.origName}`]: true }));
+                              if (customHolidays[eh.origDate]?.name === eh.origName) {
+                                setCustomHolidays(prev => { const n = { ...prev }; delete n[eh.origDate]; return n; });
+                              }
+                              setCustomHolidays(prev => ({ ...prev, [eh.newDate]: { name: eh.newName, type: eh.origType || 'custom' } }));
+                              pendingSync.current = true;
+                              setEditingHoliday(null);
+                              if (eh.newDate !== dayDialogDate) setShowDayDialog(false);
+                            }} className="text-xs bg-blue-500 text-white rounded px-3 py-1 hover:bg-blue-600">שמור</button>
+                            <button onClick={() => setEditingHoliday(null)} className="text-xs bg-gray-200 text-gray-600 rounded px-3 py-1 hover:bg-gray-300">בטל</button>
+                          </div>
+                        </div>
+                      );
+                      return (
                       <div key={i} className="flex justify-between items-center text-sm bg-amber-50 rounded-lg px-3 py-2">
                         <span>{h.name} <span className="text-xs text-gray-400">({h.type === 'jewish' ? 'יהודי' : h.type === 'arab' ? 'ערבי' : h.type === 'druze' ? 'דרוזי' : h.type === 'memorial' ? 'זיכרון' : h.type === 'islamic' ? 'מוסלמי' : 'ידני'})</span></span>
-                        <button onClick={() => {
-                          setHiddenHolidays(prev => ({ ...prev, [`${dayDialogDate}_${h.name}`]: true }));
-                          pendingSync.current = true;
-                        }} className="text-red-400 hover:text-red-600 text-xs px-2 py-0.5 rounded hover:bg-red-50" title="הסתר חג">הסתר</button>
+                        <div className="flex gap-1">
+                          <button onClick={() => setEditingHoliday({ origDate: dayDialogDate, origName: h.name, origType: h.type, newName: h.name, newDate: dayDialogDate })}
+                            className="text-blue-400 hover:text-blue-600 text-xs px-2 py-0.5 rounded hover:bg-blue-50">עריכה</button>
+                          <button onClick={() => {
+                            setHiddenHolidays(prev => ({ ...prev, [holKey]: true }));
+                            pendingSync.current = true;
+                          }} className="text-red-400 hover:text-red-600 text-xs px-2 py-0.5 rounded hover:bg-red-50">הסתר</button>
+                        </div>
                       </div>
-                    ))}
+                      );
+                    })}
                     {dHiddenHols.map((h, i) => (
                       <div key={`hid-${i}`} className="flex justify-between items-center text-sm bg-gray-50 rounded-lg px-3 py-2 opacity-60">
                         <span className="line-through">{h.name}</span>
