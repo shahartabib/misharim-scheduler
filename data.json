@@ -1,15 +1,81 @@
 {
   "version": "1.0",
-  "savedAt": "initial",
-  "savedAtISO": "2026-05-08T00:00:00.000Z",
+  "savedAt": "08.05.2026, 13:15",
+  "savedAtISO": "2026-05-08T10:15:59.220Z",
   "hebrewYear": 5787,
   "events": [
-    { "id": "pre_1", "name": "פורום ארגונים מלווים - מורחב", "category": "forum", "type": "one-time", "dates": ["2027-05-12"], "participants": 20, "notes": "פורום מורחב", "hotel": {} },
-    { "id": "pre_2", "name": "ביקורים", "category": "other", "type": "one-time", "dates": ["2027-05-20"], "participants": 0, "notes": "", "hotel": {} },
-    { "id": "pre_3", "name": "שאלוני אח\"מ", "category": "data", "type": "one-time", "dates": ["2027-05-23"], "participants": 0, "notes": "", "hotel": {} },
-    { "id": "pre_4", "name": "כנס מנהלים ומפקחים", "category": "conference", "type": "one-time", "dates": ["2027-05-26"], "participants": 0, "notes": "", "hotel": {} },
-    { "id": "pre_5", "name": "אירוע סיום מחזור ב'", "category": "conference", "type": "one-time", "dates": ["2027-08-03"], "participants": 0, "notes": "אירוע מיוחד", "hotel": {} },
-    { "id": "pre_6", "name": "סמינר מנהלים", "category": "seminar", "type": "one-time", "dates": ["2027-08-04"], "participants": 30, "notes": "", "hotel": {} }
+    {
+      "id": "pre_1",
+      "name": "פורום ארגונים מלווים - מורחב",
+      "category": "forum",
+      "type": "one-time",
+      "dates": [
+        "2027-05-12"
+      ],
+      "participants": 20,
+      "notes": "פורום מורחב",
+      "hotel": {}
+    },
+    {
+      "id": "pre_2",
+      "name": "ביקורים",
+      "category": "other",
+      "type": "one-time",
+      "dates": [
+        "2027-05-20"
+      ],
+      "participants": 0,
+      "notes": "",
+      "hotel": {}
+    },
+    {
+      "id": "pre_3",
+      "name": "שאלוני אח\"מ",
+      "category": "data",
+      "type": "one-time",
+      "dates": [
+        "2027-05-23"
+      ],
+      "participants": 0,
+      "notes": "",
+      "hotel": {}
+    },
+    {
+      "id": "pre_4",
+      "name": "כנס מנהלים ומפקחים",
+      "category": "conference",
+      "type": "one-time",
+      "dates": [
+        "2027-05-26"
+      ],
+      "participants": 0,
+      "notes": "",
+      "hotel": {}
+    },
+    {
+      "id": "pre_5",
+      "name": "אירוע סיום מחזור ב'",
+      "category": "conference",
+      "type": "one-time",
+      "dates": [
+        "2027-08-03"
+      ],
+      "participants": 0,
+      "notes": "אירוע מיוחד",
+      "hotel": {}
+    },
+    {
+      "id": "pre_6",
+      "name": "סמינר מנהלים",
+      "category": "seminar",
+      "type": "one-time",
+      "dates": [
+        "2027-08-04"
+      ],
+      "participants": 30,
+      "notes": "",
+      "hotel": {}
+    }
   ],
   "blockedDays": {},
   "customHolidays": {},
