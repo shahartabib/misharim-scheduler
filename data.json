@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "08.05.2026, 14:39",
-  "savedAtISO": "2026-05-08T11:39:11.606Z",
+  "savedAt": "08.05.2026, 14:49",
+  "savedAtISO": "2026-05-08T11:49:21.166Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -81,9 +81,7 @@
       "name": "שחר",
       "category": "other",
       "type": "one-time",
-      "dates": [
-        "2026-09-02"
-      ],
+      "dates": [],
       "participants": 2,
       "notes": "",
       "hotel": {}
