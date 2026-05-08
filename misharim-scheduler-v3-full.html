@@ -2159,7 +2159,8 @@ function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate
                       className={`gantt-cell has-event ${isCancelled ? 'event-cancelled' : ''} ${isPostponed ? 'event-postponed' : ''}`}
                       style={{ background: cat?.color + '60' }}
                       title={`${evt.name}${isCancelled ? ' (בוטל)' : ''}${isPostponed ? ' (נדחה)' : ''}`}
-                      onClick={(e) => handleCellClick(day.date, e)}>
+                      onClick={(e) => handleCellClick(day.date, e)}
+                      onDoubleClick={(e) => { e.stopPropagation(); handleCellDoubleClick(day.date); }}>
                       <span className="event-cell" style={{ color: '#333' }}>
                         {evt.name.slice(0, 6)}
                       </span>
