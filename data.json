@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "08.05.2026, 13:58",
-  "savedAtISO": "2026-05-08T10:58:30.716Z",
+  "savedAt": "08.05.2026, 14:39",
+  "savedAtISO": "2026-05-08T11:39:11.606Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -75,11 +75,24 @@
       "participants": 30,
       "notes": "",
       "hotel": {}
+    },
+    {
+      "id": "evt_mowue43q_1",
+      "name": "שחר",
+      "category": "other",
+      "type": "one-time",
+      "dates": [
+        "2026-09-02"
+      ],
+      "participants": 2,
+      "notes": "",
+      "hotel": {}
     }
   ],
   "blockedDays": {},
   "customHolidays": {},
   "cancelledDates": {},
   "postponedDates": {},
-  "cellNotes": {}
+  "cellNotes": {},
+  "hiddenHolidays": {}
 }
