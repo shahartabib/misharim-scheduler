@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "08.05.2026, 13:19",
-  "savedAtISO": "2026-05-08T10:19:58.743Z",
+  "savedAt": "08.05.2026, 13:50",
+  "savedAtISO": "2026-05-08T10:50:11.870Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -74,6 +74,18 @@
       ],
       "participants": 30,
       "notes": "",
+      "hotel": {}
+    },
+    {
+      "id": "evt_mowsn3sd_1",
+      "name": "טסט סנכרון אוטומטי",
+      "category": "other",
+      "type": "one-time",
+      "participants": 0,
+      "notes": "",
+      "dates": [
+        "2027-01-15"
+      ],
       "hotel": {}
     }
   ],
