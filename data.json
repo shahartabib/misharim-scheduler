@@ -75,18 +75,6 @@
       "participants": 30,
       "notes": "",
       "hotel": {}
-    },
-    {
-      "id": "evt_mowsn3sd_1",
-      "name": "טסט סנכרון אוטומטי",
-      "category": "other",
-      "type": "one-time",
-      "participants": 0,
-      "notes": "",
-      "dates": [
-        "2027-01-15"
-      ],
-      "hotel": {}
     }
   ],
   "blockedDays": {},
