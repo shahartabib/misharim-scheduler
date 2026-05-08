@@ -43,6 +43,13 @@
 </style>
 <script>
 tailwind.config = {
+  safelist: [
+    'bg-gray-50','bg-gray-100','text-gray-700','border-gray-200',
+    'bg-blue-50','bg-blue-100','text-blue-700','border-blue-200',
+    'bg-green-50','bg-green-100','text-green-700','border-green-200',
+    'bg-yellow-50','bg-yellow-100','text-yellow-700','border-yellow-200',
+    'bg-red-50','bg-red-100','text-red-700','border-red-200',
+  ],
   theme: { extend: { colors: {
     'seminar': '#E9B1F2', 'forum': '#FFC000', 'special': '#00B0F0',
     'jewish': '#D8D6C2', 'arab': '#FFCCCC', 'druze': '#CCE5CC'
@@ -303,6 +310,56 @@ const PRELOADED_EVENTS = [
 ];
 
 // ============================================================
+// GITHUB SYNC CONFIG
+// ============================================================
+const GH_OWNER = 'shahartabib';
+const GH_REPO = 'misharim-scheduler';
+const GH_FILE = 'data.json';
+const GH_BRANCH = 'master';
+const GH_API = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+
+async function ghFetchData() {
+  const res = await fetch(`${GH_API}?ref=${GH_BRANCH}&t=${Date.now()}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`GitHub fetch failed: ${res.status}`);
+  const json = await res.json();
+  const content = atob(json.content.replace(/\n/g, ''));
+  return { data: JSON.parse(content), sha: json.sha };
+}
+
+async function ghPushData(data, sha, token) {
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+  const body = { message: `sync ${new Date().toISOString()}`, content, branch: GH_BRANCH };
+  if (sha) body.sha = sha;
+  const res = await fetch(GH_API, {
+    method: 'PUT',
+    headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const err = await res.json(); throw new Error(err.message || `Push failed: ${res.status}`); }
+  const result = await res.json();
+  return result.content.sha;
+}
+
+function mergeProjectData(remote, local) {
+  if (!remote) return local;
+  const merged = { ...remote };
+  const remoteIds = new Set((remote.events || []).map(e => e.id));
+  const localIds = new Set((local.events || []).map(e => e.id));
+  const allEvents = [...(remote.events || [])];
+  for (const evt of (local.events || [])) {
+    if (!remoteIds.has(evt.id)) allEvents.push(evt);
+  }
+  merged.events = allEvents;
+  merged.blockedDays = { ...(remote.blockedDays || {}), ...(local.blockedDays || {}) };
+  merged.customHolidays = { ...(remote.customHolidays || {}), ...(local.customHolidays || {}) };
+  merged.cancelledDates = { ...(remote.cancelledDates || {}), ...(local.cancelledDates || {}) };
+  merged.postponedDates = { ...(remote.postponedDates || {}), ...(local.postponedDates || {}) };
+  merged.cellNotes = { ...(remote.cellNotes || {}), ...(local.cellNotes || {}) };
+  return merged;
+}
+
+// ============================================================
 // UNIQUE ID GENERATOR
 // ============================================================
 let _idCounter = 0;
@@ -462,6 +519,10 @@ function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [activePanel, setActivePanel] = useState('events'); // events, hotel, ai, settings
   const [apiKey, setApiKey] = useState('');
+  const [ghToken, setGhToken] = useState('');
+  const [ghSha, setGhSha] = useState(null);
+  const [syncStatus, setSyncStatus] = useState('idle');
+  const [lastSync, setLastSync] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -492,22 +553,45 @@ function App() {
     return merged;
   }, [holidays, customHolidays]);
 
-  // Load from localStorage
+  // Load: fetch from GitHub, fallback to localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('misharim_project');
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.hebrewYear) setHebrewYear(data.hebrewYear);
-        if (data.events && data.events.length > 0) setEvents(data.events);
-        if (data.blockedDays) setBlockedDays(data.blockedDays);
-        if (data.customHolidays) setCustomHolidays(data.customHolidays);
-        if (data.cancelledDates) setCancelledDates(data.cancelledDates);
-        if (data.postponedDates) setPostponedDates(data.postponedDates);
-        if (data.apiKey) setApiKey(data.apiKey);
-        if (data.cellNotes) setCellNotes(data.cellNotes);
+    const savedToken = localStorage.getItem('misharim_gh_token');
+    if (savedToken) setGhToken(savedToken);
+
+    function applyData(data) {
+      if (data.hebrewYear) setHebrewYear(data.hebrewYear);
+      if (data.events && data.events.length > 0) setEvents(data.events);
+      if (data.blockedDays) setBlockedDays(data.blockedDays);
+      if (data.customHolidays) setCustomHolidays(data.customHolidays);
+      if (data.cancelledDates) setCancelledDates(data.cancelledDates);
+      if (data.postponedDates) setPostponedDates(data.postponedDates);
+      if (data.cellNotes) setCellNotes(data.cellNotes);
+      if (data.apiKey) setApiKey(data.apiKey);
+    }
+
+    setSyncStatus('loading');
+    ghFetchData().then(result => {
+      if (result) {
+        applyData(result.data);
+        setGhSha(result.sha);
+        setLastSync(new Date());
+        setSyncStatus('synced');
+      } else {
+        // No remote data yet — try localStorage
+        try {
+          const saved = localStorage.getItem('misharim_project');
+          if (saved) applyData(JSON.parse(saved));
+        } catch {}
+        setSyncStatus('no-remote');
       }
-    } catch {}
+    }).catch(() => {
+      // GitHub unavailable — fall back to localStorage
+      try {
+        const saved = localStorage.getItem('misharim_project');
+        if (saved) applyData(JSON.parse(saved));
+      } catch {}
+      setSyncStatus('offline');
+    });
   }, []);
 
   // Auto-save
@@ -742,22 +826,67 @@ function App() {
   // ============================================================
   // SAVE / LOAD / EXPORT
   // ============================================================
-  const saveProject = useCallback(() => {
+  const saveProject = useCallback(async () => {
     const timestamp = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' });
-    const data = {
+    const localData = {
       version: '1.0',
       savedAt: timestamp,
       savedAtISO: new Date().toISOString(),
-      hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates
+      hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `misharim-${HEBREW_YEAR_NAMES[hebrewYear]?.replace(/"/g,'')}-${timestamp.replace(/[/:]/g,'-')}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates]);
+
+    // Always save to localStorage as backup
+    localStorage.setItem('misharim_project', JSON.stringify(localData));
+
+    // Push to GitHub if token is available
+    const token = ghToken || localStorage.getItem('misharim_gh_token');
+    if (!token) {
+      alert('שמירה מקומית בוצעה.\nכדי לסנכרן עם כולם — הכנס GitHub Token בהגדרות.');
+      return;
+    }
+
+    setSyncStatus('saving');
+    try {
+      // Fetch latest remote to merge
+      const remote = await ghFetchData();
+      const mergedData = mergeProjectData(remote?.data, localData);
+      mergedData.savedAt = timestamp;
+      mergedData.savedAtISO = new Date().toISOString();
+      const newSha = await ghPushData(mergedData, remote?.sha || ghSha, token);
+      setGhSha(newSha);
+      setLastSync(new Date());
+      setSyncStatus('synced');
+      alert('הפרויקט נשמר וסונכרן בהצלחה!');
+    } catch (err) {
+      setSyncStatus('error');
+      alert(`שגיאה בסנכרון: ${err.message}\nהנתונים נשמרו מקומית.`);
+    }
+  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, ghToken, ghSha]);
+
+  // Refresh from GitHub (pull latest)
+  const refreshFromGithub = useCallback(async () => {
+    setSyncStatus('loading');
+    try {
+      const result = await ghFetchData();
+      if (result) {
+        const d = result.data;
+        if (d.hebrewYear) setHebrewYear(d.hebrewYear);
+        if (d.events && d.events.length > 0) setEvents(d.events);
+        if (d.blockedDays) setBlockedDays(d.blockedDays);
+        if (d.customHolidays) setCustomHolidays(d.customHolidays);
+        if (d.cancelledDates) setCancelledDates(d.cancelledDates);
+        if (d.postponedDates) setPostponedDates(d.postponedDates);
+        if (d.cellNotes) setCellNotes(d.cellNotes);
+        setGhSha(result.sha);
+        setLastSync(new Date());
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('no-remote');
+      }
+    } catch {
+      setSyncStatus('offline');
+    }
+  }, []);
 
   const loadProject = useCallback(() => {
     const input = document.createElement('input');
@@ -1526,8 +1655,13 @@ ${blockedSummary || 'אין ימים חסומים'}
             <SettingsPanel
               apiKey={apiKey}
               setApiKey={setApiKey}
+              ghToken={ghToken}
+              setGhToken={(t) => { setGhToken(t); localStorage.setItem('misharim_gh_token', t); }}
+              syncStatus={syncStatus}
+              lastSync={lastSync}
               saveProject={saveProject}
               loadProject={loadProject}
+              refreshFromGithub={refreshFromGithub}
               exportToExcel={exportToExcel}
               exportForRashel={exportForRashel}
               blockedDays={blockedDays}
@@ -2566,9 +2700,41 @@ function AiPanel({ apiKey, chatHistory, chatInput, setChatInput, sendAiMessage, 
 // ============================================================
 // SETTINGS PANEL
 // ============================================================
-function SettingsPanel({ apiKey, setApiKey, saveProject, loadProject, exportToExcel, exportForRashel, blockedDays, unblockDay, customHolidays, removeCustomHoliday }) {
+function SettingsPanel({ apiKey, setApiKey, ghToken, setGhToken, syncStatus, lastSync, saveProject, loadProject, refreshFromGithub, exportToExcel, exportForRashel, blockedDays, unblockDay, customHolidays, removeCustomHoliday }) {
+  const syncLabels = {
+    idle: { text: 'ממתין', color: 'gray' },
+    loading: { text: 'טוען...', color: 'blue' },
+    saving: { text: 'שומר...', color: 'blue' },
+    synced: { text: 'מסונכרן', color: 'green' },
+    'no-remote': { text: 'אין נתונים מרוחקים', color: 'yellow' },
+    offline: { text: 'אופליין — נתונים מקומיים', color: 'red' },
+    error: { text: 'שגיאת סנכרון', color: 'red' },
+  };
+  const sync = syncLabels[syncStatus] || syncLabels.idle;
+
   return (
     <div className="space-y-4">
+      {/* Sync status */}
+      <div className={`bg-${sync.color}-50 border border-${sync.color}-200 rounded-lg p-3`}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm">☁️ סנכרון</h3>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-${sync.color}-100 text-${sync.color}-700`}>{sync.text}</span>
+        </div>
+        {lastSync && <p className="text-xs text-gray-500">עדכון אחרון: {lastSync.toLocaleTimeString('he-IL')}</p>}
+        <button onClick={refreshFromGithub} disabled={syncStatus === 'loading' || syncStatus === 'saving'}
+          className="mt-2 w-full bg-blue-500 text-white rounded-lg py-1.5 text-sm hover:bg-blue-600 transition font-medium disabled:opacity-50">
+          🔄 רענן מהשרת
+        </button>
+      </div>
+
+      {/* GitHub Token */}
+      <div>
+        <h3 className="font-semibold text-sm mb-2">🔐 GitHub Token</h3>
+        <input type="password" value={ghToken} onChange={e => setGhToken(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="ghp_..." />
+        <p className="text-xs text-gray-400 mt-1">נדרש לשמירה בלבד. קריאה עובדת ללא טוקן.</p>
+      </div>
+
       {/* API Key */}
       <div>
         <h3 className="font-semibold text-sm mb-2">🔑 API Key (Anthropic)</h3>
@@ -2580,20 +2746,12 @@ function SettingsPanel({ apiKey, setApiKey, saveProject, loadProject, exportToEx
       {/* Project actions */}
       <div>
         <h3 className="font-semibold text-sm mb-2">💾 פרויקט</h3>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-          <p className="text-xs text-blue-800 font-medium mb-2">⚙️ הגדרת שמירה ל-KB:</p>
-          <ul className="text-xs text-blue-700 space-y-1">
-            <li>1️⃣ <strong>Chrome:</strong> הגדרות → הורדות → בחר תיקייה</li>
-            <li>2️⃣ בחר את תיקיית <code className="bg-white text-blue-900 px-1 rounded text-xs">KB/</code> בפרוייקט</li>
-            <li>3️⃣ כל שמירה תורידה ישר ל-KB</li>
-          </ul>
-        </div>
         <div className="grid grid-cols-2 gap-2">
           <button onClick={saveProject} className="bg-green-100 text-green-700 rounded-lg py-2 text-sm hover:bg-green-200 transition font-medium">
-            📥 שמור פרויקט
+            ☁️ שמור וסנכרן
           </button>
           <button onClick={loadProject} className="bg-blue-100 text-blue-700 rounded-lg py-2 text-sm hover:bg-blue-200 transition font-medium">
-            📤 טען פרויקט
+            📤 טען מקובץ
           </button>
           <button onClick={exportToExcel} className="col-span-2 bg-purple-100 text-purple-700 rounded-lg py-2 text-sm hover:bg-purple-200 transition font-medium">
             📊 ייצוא לאקסל
