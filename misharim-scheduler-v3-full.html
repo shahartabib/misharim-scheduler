@@ -914,10 +914,7 @@ function App() {
       };
       localStorage.setItem('misharim_project', JSON.stringify(localData));
       const remote = await ghFetchData();
-      const mergedData = mergeProjectData(remote?.data, localData);
-      mergedData.savedAt = localData.savedAt;
-      mergedData.savedAtISO = localData.savedAtISO;
-      const newSha = await ghPushData(mergedData, remote?.sha || ghSha, token);
+      const newSha = await ghPushData(localData, remote?.sha || ghSha, token);
       setGhSha(newSha);
       setLastSync(new Date());
       setSyncStatus('synced');
