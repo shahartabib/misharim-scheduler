@@ -524,6 +524,7 @@ function App() {
   const [ghSha, setGhSha] = useState(null);
   const [syncStatus, setSyncStatus] = useState('idle');
   const [lastSync, setLastSync] = useState(null);
+  const pendingSync = useRef(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -779,6 +780,7 @@ function App() {
   const addEvent = useCallback((eventData) => {
     const newEvent = { id: uid(), ...eventData, hotel: eventData.hotel || {} };
     setEvents(prev => [...prev, newEvent]);
+    pendingSync.current = true;
     return newEvent;
   }, []);
 
@@ -787,6 +789,7 @@ function App() {
     setEvents(prev => prev.filter(e => e.id !== eventId));
     setCancelledDates(prev => { const n = {...prev}; delete n[eventId]; return n; });
     setPostponedDates(prev => { const n = {...prev}; delete n[eventId]; return n; });
+    pendingSync.current = true;
   }, []);
 
   // Cancel a specific date
@@ -795,6 +798,7 @@ function App() {
       ...prev,
       [eventId]: { ...(prev[eventId] || {}), [date]: true }
     }));
+    pendingSync.current = true;
   }, []);
 
   // Postpone a date
@@ -803,26 +807,31 @@ function App() {
       ...prev,
       [eventId]: { ...(prev[eventId] || {}), [oldDate]: newDate }
     }));
+    pendingSync.current = true;
   }, []);
 
   // Block a day
   const blockDay = useCallback((date, reason) => {
     setBlockedDays(prev => ({ ...prev, [date]: reason }));
+    pendingSync.current = true;
   }, []);
 
   // Unblock a day
   const unblockDay = useCallback((date) => {
     setBlockedDays(prev => { const n = {...prev}; delete n[date]; return n; });
+    pendingSync.current = true;
   }, []);
 
   // Add custom holiday
   const addCustomHoliday = useCallback((date, name, type = 'custom') => {
     setCustomHolidays(prev => ({ ...prev, [date]: { name, type } }));
+    pendingSync.current = true;
   }, []);
 
   // Remove custom holiday
   const removeCustomHoliday = useCallback((date) => {
     setCustomHolidays(prev => { const n = {...prev}; delete n[date]; return n; });
+    pendingSync.current = true;
   }, []);
 
 
@@ -890,6 +899,42 @@ function App() {
       setSyncStatus('offline');
     }
   }, []);
+
+  // Auto-sync: silently push to GitHub when user makes changes
+  const autoSync = useCallback(async () => {
+    const token = ghToken || localStorage.getItem('misharim_gh_token');
+    if (!token) return;
+    setSyncStatus('saving');
+    try {
+      const localData = {
+        version: '1.0',
+        savedAt: new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' }),
+        savedAtISO: new Date().toISOString(),
+        hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes
+      };
+      localStorage.setItem('misharim_project', JSON.stringify(localData));
+      const remote = await ghFetchData();
+      const mergedData = mergeProjectData(remote?.data, localData);
+      mergedData.savedAt = localData.savedAt;
+      mergedData.savedAtISO = localData.savedAtISO;
+      const newSha = await ghPushData(mergedData, remote?.sha || ghSha, token);
+      setGhSha(newSha);
+      setLastSync(new Date());
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('error');
+    }
+  }, [hebrewYear, events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, ghToken, ghSha]);
+
+  // Debounced auto-sync when pendingSync is flagged
+  useEffect(() => {
+    if (!pendingSync.current) return;
+    const timer = setTimeout(() => {
+      pendingSync.current = false;
+      autoSync();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, autoSync]);
 
   const loadProject = useCallback(() => {
     const input = document.createElement('input');
@@ -1408,6 +1453,7 @@ ${blockedSummary || 'אין ימים חסומים'}
         setEvents(prev => prev.map(e =>
           e.id === toolInput.eventId ? { ...e, hotel: { ...e.hotel, ...toolInput.hotel } } : e
         ));
+        pendingSync.current = true;
         return 'פרטי מלון עודכנו.';
       }
       default: return 'כלי לא מוכר';
@@ -1532,6 +1578,7 @@ ${blockedSummary || 'אין ימים חסומים'}
           ? { ...evt, dates: [...new Set([...evt.dates, date])] }
           : evt
       ));
+      pendingSync.current = true;
     }
   }, [selectedEvent, blockedDays, blockDay, unblockDay, addCustomHoliday, getConflicts]);
 
@@ -1586,6 +1633,7 @@ ${blockedSummary || 'אין ימים חסומים'}
         ? { ...evt, dates: [...new Set([...evt.dates, targetDate])] }
         : evt
     ));
+    pendingSync.current = true;
     setDraggedEvent(null);
   }, [draggedEvent, getConflicts]);
 
@@ -1641,7 +1689,7 @@ ${blockedSummary || 'אין ימים חסומים'}
             />
           )}
           {activePanel === 'hotel' && (
-            <HotelPanel events={events} setEvents={setEvents} />
+            <HotelPanel events={events} setEvents={setEvents} onChanged={() => { pendingSync.current = true; }} />
           )}
           {activePanel === 'ai' && (
             <AiPanel
@@ -1732,6 +1780,7 @@ ${blockedSummary || 'אין ימים חסומים'}
           onSave={(data) => {
             if (editingEvent) {
               setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...data } : e));
+              pendingSync.current = true;
             } else {
               addEvent(data);
             }
@@ -2476,7 +2525,7 @@ function EventFormModal({ editingEvent, onClose, onSave, suggestDates, suggestRe
 // ============================================================
 // HOTEL PANEL
 // ============================================================
-function HotelPanel({ events, setEvents }) {
+function HotelPanel({ events, setEvents, onChanged }) {
   const [selectedEvt, setSelectedEvt] = useState(null);
   const eventsWithDates = events.filter(e => e.dates.length > 0);
 
@@ -2484,6 +2533,7 @@ function HotelPanel({ events, setEvents }) {
     setEvents(prev => prev.map(e =>
       e.id === eventId ? { ...e, hotel: { ...e.hotel, [field]: value } } : e
     ));
+    if (onChanged) onChanged();
   };
 
   const exportHotelList = () => {
