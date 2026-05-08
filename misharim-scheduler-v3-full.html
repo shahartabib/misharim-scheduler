@@ -532,6 +532,8 @@ function App() {
   const [editingEvent, setEditingEvent] = useState(null);
   const [formInitialDates, setFormInitialDates] = useState(null);
   const [selectedCell, setSelectedCell] = useState(null);
+  const rangeStartRef = useRef(null);
+  const clickTimerRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
   const [hoveredEventId, setHoveredEventId] = useState(null); // for Gantt highlight
   const [viewMode, setViewMode] = useState('year'); // 'year' or index 0-11 for monthly
@@ -1542,9 +1544,7 @@ ${blockedSummary || 'אין ימים חסומים'}
   // CELL CLICK HANDLER
   // ============================================================
   const handleCellClick = useCallback((date, e) => {
-    console.log('Cell clicked:', date);
     if (e.shiftKey) {
-      // Shift+click to block/unblock
       if (blockedDays[date]) {
         unblockDay(date);
       } else {
@@ -1555,29 +1555,31 @@ ${blockedSummary || 'אין ימים חסומים'}
     }
 
     if (e.ctrlKey || e.metaKey) {
-      // Ctrl+click to add custom holiday
       const name = prompt('שם החג/אירוע:');
       if (name) addCustomHoliday(date, name);
       return;
     }
 
-    setSelectedCell(date);
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      rangeStartRef.current = date;
+      setSelectedCell(date);
 
-    if (selectedEvent) {
-      // Place the selected event on this date
-      const conflicts = getConflicts(date);
-      if (conflicts.length > 0) {
-        const proceed = confirm(`התראה! תאריך ${date} חופף ל:\n${conflicts.map(c => c.text).join('\n')}\n\nלהמשיך?`);
-        if (!proceed) return;
+      if (selectedEvent) {
+        const conflicts = getConflicts(date);
+        if (conflicts.length > 0) {
+          const proceed = confirm(`התראה! תאריך ${date} חופף ל:\n${conflicts.map(c => c.text).join('\n')}\n\nלהמשיך?`);
+          if (!proceed) return;
+        }
+        setEvents(prev => prev.map(evt =>
+          evt.id === selectedEvent.id
+            ? { ...evt, dates: [...new Set([...evt.dates, date])] }
+            : evt
+        ));
+        pendingSync.current = true;
       }
-
-      setEvents(prev => prev.map(evt =>
-        evt.id === selectedEvent.id
-          ? { ...evt, dates: [...new Set([...evt.dates, date])] }
-          : evt
-      ));
-      pendingSync.current = true;
-    }
+    }, 250);
   }, [selectedEvent, blockedDays, blockDay, unblockDay, addCustomHoliday, getConflicts]);
 
   // Handle cell note dialog
@@ -1601,21 +1603,24 @@ ${blockedSummary || 'אין ימים חסומים'}
 
   // Double-click on calendar cell → open new event form with date(s)
   const handleCellDoubleClick = useCallback((date) => {
-    if (selectedCell && selectedCell !== date) {
-      const d1 = new Date(selectedCell), d2 = new Date(date);
-      const start = d1 < d2 ? d1 : d2, end = d1 < d2 ? d2 : d1;
+    if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
+    const start = rangeStartRef.current;
+    if (start && start !== date) {
+      const d1 = new Date(start), d2 = new Date(date);
+      const lo = d1 < d2 ? d1 : d2, hi = d1 < d2 ? d2 : d1;
       const dates = [];
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      for (let d = new Date(lo); d <= hi; d.setDate(d.getDate() + 1)) {
         dates.push(d.toISOString().split('T')[0]);
       }
       setFormInitialDates(dates);
     } else {
       setFormInitialDates([date]);
     }
+    rangeStartRef.current = null;
     setEditingEvent(null);
     setShowEventForm(true);
     setSelectedCell(null);
-  }, [selectedCell]);
+  }, []);
 
   // Handle drag and drop
   const handleDragStart = useCallback((e, eventId) => {
