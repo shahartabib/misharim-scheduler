@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "11.05.2026, 12:44",
-  "savedAtISO": "2026-05-11T09:44:54.303Z",
+  "savedAt": "11.05.2026, 12:46",
+  "savedAtISO": "2026-05-11T09:46:48.744Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -98,7 +98,11 @@
   ],
   "blockedDays": {},
   "customHolidays": {},
-  "cancelledDates": {},
+  "cancelledDates": {
+    "evt_mp10moya_1": {
+      "2027-08-25": true
+    }
+  },
   "postponedDates": {},
   "cellNotes": {},
   "hiddenHolidays": {}
