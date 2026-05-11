@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 12:47",
-  "savedAtISO": "2026-05-11T09:47:39.617Z",
+  "savedAtISO": "2026-05-11T09:47:44.551Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -50,18 +50,6 @@
       ],
       "participants": 0,
       "notes": "",
-      "hotel": {}
-    },
-    {
-      "id": "pre_5",
-      "name": "אירוע סיום מחזור ב'",
-      "category": "conference",
-      "type": "one-time",
-      "dates": [
-        "2027-08-03"
-      ],
-      "participants": 0,
-      "notes": "אירוע מיוחד",
       "hotel": {}
     }
   ],
