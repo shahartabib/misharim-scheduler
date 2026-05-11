@@ -1,19 +1,9 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 13:12",
-  "savedAtISO": "2026-05-11T10:12:34.545Z",
+  "savedAtISO": "2026-05-11T10:12:36.842Z",
   "hebrewYear": 5787,
   "events": [
-    {
-      "id": "evt_mo67l4tt_3",
-      "name": "גשר",
-      "category": "other",
-      "type": "one-time",
-      "participants": 0,
-      "notes": "",
-      "dates": [],
-      "hotel": {}
-    },
     {
       "id": "evt_mo67so65_4",
       "name": "חג הנביא שועייב",
