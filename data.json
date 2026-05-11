@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 12:55",
-  "savedAtISO": "2026-05-11T09:55:33.982Z",
+  "savedAtISO": "2026-05-11T09:55:37.257Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -134,6 +134,18 @@
     },
     {
       "id": "evt_mp110c62_1",
+      "name": "חג הסיגד",
+      "category": "other",
+      "type": "one-time",
+      "dates": [
+        "2026-11-09"
+      ],
+      "participants": 0,
+      "notes": "חג יהודי אתיופי - 29 במרחשוון",
+      "hotel": {}
+    },
+    {
+      "id": "evt_mp110h32_2",
       "name": "חג הסיגד",
       "category": "other",
       "type": "one-time",
