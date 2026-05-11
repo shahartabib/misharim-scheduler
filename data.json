@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 12:47",
-  "savedAtISO": "2026-05-11T09:47:37.284Z",
+  "savedAtISO": "2026-05-11T09:47:39.617Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -62,18 +62,6 @@
       ],
       "participants": 0,
       "notes": "אירוע מיוחד",
-      "hotel": {}
-    },
-    {
-      "id": "pre_6",
-      "name": "סמינר מנהלים",
-      "category": "seminar",
-      "type": "one-time",
-      "dates": [
-        "2027-08-04"
-      ],
-      "participants": 30,
-      "notes": "",
       "hotel": {}
     }
   ],
