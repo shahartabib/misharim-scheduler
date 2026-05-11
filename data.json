@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "11.05.2026, 13:00",
-  "savedAtISO": "2026-05-11T10:00:24.497Z",
+  "savedAt": "11.05.2026, 13:02",
+  "savedAtISO": "2026-05-11T10:02:27.073Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -137,6 +137,10 @@
   "customHolidays": {
     "2026-11-09": {
       "name": "חג סיגד",
+      "type": "custom"
+    },
+    "2027-03-24": {
+      "name": "שושן פורים",
       "type": "custom"
     }
   },
