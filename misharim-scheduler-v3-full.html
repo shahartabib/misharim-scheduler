@@ -525,7 +525,7 @@ const AI_TOOLS = [
 // ============================================================
 function App() {
   const [hebrewYear, setHebrewYear] = useState(5787);
-  const [events, setEvents] = useState(PRELOADED_EVENTS);
+  const [events, setEvents] = useState([]);
   const [blockedDays, setBlockedDays] = useState({});
   const [customHolidays, setCustomHolidays] = useState({});
   const [cancelledDates, setCancelledDates] = useState({}); // {eventId: {date: true}}
@@ -589,7 +589,7 @@ function App() {
 
     function applyData(data) {
       if (data.hebrewYear) setHebrewYear(data.hebrewYear);
-      if (data.events && data.events.length > 0) setEvents(data.events);
+      if (Array.isArray(data.events)) setEvents(data.events);
       if (data.blockedDays) setBlockedDays(data.blockedDays);
       if (data.customHolidays) setCustomHolidays(data.customHolidays);
       if (data.cancelledDates) setCancelledDates(data.cancelledDates);
@@ -607,19 +607,21 @@ function App() {
         setLastSync(new Date());
         setSyncStatus('synced');
       } else {
-        // No remote data yet — try localStorage
+        // No remote data yet — try localStorage, then defaults
         try {
           const saved = localStorage.getItem('misharim_project');
           if (saved) applyData(JSON.parse(saved));
-        } catch {}
+          else setEvents(PRELOADED_EVENTS);
+        } catch { setEvents(PRELOADED_EVENTS); }
         setSyncStatus('no-remote');
       }
     }).catch(() => {
-      // GitHub unavailable — fall back to localStorage
+      // GitHub unavailable — fall back to localStorage, then defaults
       try {
         const saved = localStorage.getItem('misharim_project');
         if (saved) applyData(JSON.parse(saved));
-      } catch {}
+        else setEvents(PRELOADED_EVENTS);
+      } catch { setEvents(PRELOADED_EVENTS); }
       setSyncStatus('offline');
     });
   }, []);
@@ -906,7 +908,7 @@ function App() {
       if (result) {
         const d = result.data;
         if (d.hebrewYear) setHebrewYear(d.hebrewYear);
-        if (d.events && d.events.length > 0) setEvents(d.events);
+        if (Array.isArray(d.events)) setEvents(d.events);
         if (d.blockedDays) setBlockedDays(d.blockedDays);
         if (d.customHolidays) setCustomHolidays(d.customHolidays);
         if (d.cancelledDates) setCancelledDates(d.cancelledDates);
