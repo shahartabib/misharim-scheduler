@@ -1,22 +1,9 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 12:47",
-  "savedAtISO": "2026-05-11T09:47:51.445Z",
+  "savedAtISO": "2026-05-11T09:47:56.300Z",
   "hebrewYear": 5787,
-  "events": [
-    {
-      "id": "pre_1",
-      "name": "פורום ארגונים מלווים - מורחב",
-      "category": "forum",
-      "type": "one-time",
-      "dates": [
-        "2027-05-12"
-      ],
-      "participants": 20,
-      "notes": "פורום מורחב",
-      "hotel": {}
-    }
-  ],
+  "events": [],
   "blockedDays": {},
   "customHolidays": {},
   "cancelledDates": {},
