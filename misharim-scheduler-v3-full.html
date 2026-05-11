@@ -2056,6 +2056,15 @@ ${blockedSummary || 'אין ימים חסומים'}
 // MONTH BLOCK COMPONENT
 // ============================================================
 function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate, handleCellClick, selectedCell, cancelledDates, postponedDates, events, setTooltip, hoveredEventId, isMonthlyView, cellNotes, handleOpenCellNoteDialog, handleCellDoubleClick, handleDragOver, handleDrop, draggedEvent }) {
+  const maxHolidaysInMonth = useMemo(() => {
+    let max = 0;
+    for (const day of month.days) {
+      const hols = holidays[day.date];
+      if (hols && hols.length > max) max = hols.length;
+    }
+    return Math.max(max, 1);
+  }, [month, holidays]);
+
   const maxEventsInMonth = useMemo(() => {
     let max = 0;
     for (const day of month.days) {
@@ -2077,7 +2086,7 @@ function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate
     <div className={`mb-4 ${isMonthlyView ? 'monthly' : ''}`}>
       <div className="flex">
         {/* Month label */}
-        <div className="month-label flex items-center justify-center rounded-r-lg" style={{ minHeight: `${(4 + maxEventsInMonth) * (isMonthlyView ? 34 : 28)}px` }}>
+        <div className="month-label flex items-center justify-center rounded-r-lg" style={{ minHeight: `${(3 + maxHolidaysInMonth + maxEventsInMonth) * (isMonthlyView ? 34 : 28)}px` }}>
           {month.name} {month.year}
         </div>
 
@@ -2129,26 +2138,36 @@ function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate
               ))}
             </div>
 
-            {/* Row 4: Holidays */}
-            <div className="flex">
-              {month.days.map(day => {
-                const hols = holidays[day.date];
-                const holType = hols?.[0]?.type;
-                let bgClass = '';
-                if (holType === 'jewish' || holType === 'memorial') bgClass = 'jewish-holiday';
-                else if (holType === 'arab') bgClass = 'arab-holiday';
-                else if (holType === 'druze') bgClass = 'druze-holiday';
+            {/* Holiday rows (dynamic — one row per overlapping holiday) */}
+            {Array.from({ length: maxHolidaysInMonth }, (_, holRowIdx) => (
+              <div key={`hol-row-${holRowIdx}`} className="flex">
+                {month.days.map(day => {
+                  const hols = holidays[day.date];
+                  const hol = hols?.[holRowIdx];
+                  if (!hol) {
+                    return (
+                      <div key={`hol-${day.date}-${holRowIdx}`}
+                        className={`gantt-cell ${day.isFriday ? 'friday' : ''} ${day.isShabbat ? 'shabbat' : ''}`}>
+                      </div>
+                    );
+                  }
+                  const holType = hol.type;
+                  let bgClass = '';
+                  if (holType === 'jewish' || holType === 'memorial') bgClass = 'jewish-holiday';
+                  else if (holType === 'arab') bgClass = 'arab-holiday';
+                  else if (holType === 'druze') bgClass = 'druze-holiday';
 
-                return (
-                  <div key={`hol-${day.date}`}
-                    className={`gantt-cell ${bgClass} ${day.isFriday && !hols ? 'friday' : ''} ${day.isShabbat && !hols ? 'shabbat' : ''} ${hols ? 'cursor-pointer' : ''}`}
-                    title={hols?.map(h => h.name).join(', ')}
-                    onDoubleClick={hols ? (e) => { e.stopPropagation(); handleCellDoubleClick(day.date); } : undefined}>
-                    <span className="holiday-text">{hols?.[0]?.name || ''}</span>
-                  </div>
-                );
-              })}
-            </div>
+                  return (
+                    <div key={`hol-${day.date}-${holRowIdx}`}
+                      className={`gantt-cell ${bgClass} cursor-pointer`}
+                      title={hol.name}
+                      onDoubleClick={(e) => { e.stopPropagation(); handleCellDoubleClick(day.date); }}>
+                      <span className="holiday-text">{hol.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
 
             {/* Event rows */}
             {Array.from({ length: maxEventsInMonth }, (_, rowIdx) => (
