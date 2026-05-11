@@ -1,33 +1,9 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 13:13",
-  "savedAtISO": "2026-05-11T10:13:40.601Z",
+  "savedAtISO": "2026-05-11T10:13:44.224Z",
   "hebrewYear": 5787,
   "events": [
-    {
-      "id": "pre_4",
-      "name": "כנס מנהלים ומפקחים",
-      "category": "conference",
-      "type": "one-time",
-      "dates": [
-        "2027-05-26"
-      ],
-      "participants": 0,
-      "notes": "",
-      "hotel": {}
-    },
-    {
-      "id": "pre_5",
-      "name": "אירוע סיום מחזור ב'",
-      "category": "conference",
-      "type": "one-time",
-      "dates": [
-        "2027-08-03"
-      ],
-      "participants": 0,
-      "notes": "אירוע מיוחד",
-      "hotel": {}
-    },
     {
       "id": "pre_6",
       "name": "סמינר מנהלים",
