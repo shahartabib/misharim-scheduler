@@ -1,11 +1,16 @@
 {
   "version": "1.0",
-  "savedAt": "11.05.2026, 13:36",
-  "savedAtISO": "2026-05-11T10:36:10.131Z",
+  "savedAt": "11.05.2026, 13:55",
+  "savedAtISO": "2026-05-11T10:55:29.573Z",
   "hebrewYear": 5787,
   "events": [],
   "blockedDays": {},
-  "customHolidays": {},
+  "customHolidays": {
+    "2026-12-16": {
+      "name": "מבחן תנופה בשפת אם לכיתות ד' (דוברי ערבית)",
+      "type": "custom"
+    }
+  },
   "cancelledDates": {},
   "postponedDates": {},
   "cellNotes": {},
