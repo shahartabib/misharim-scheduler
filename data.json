@@ -1,19 +1,9 @@
 {
   "version": "1.0",
-  "savedAt": "11.05.2026, 12:51",
-  "savedAtISO": "2026-05-11T09:51:17.031Z",
+  "savedAt": "11.05.2026, 12:55",
+  "savedAtISO": "2026-05-11T09:55:27.499Z",
   "hebrewYear": 5787,
   "events": [
-    {
-      "id": "evt_mo65lcgr_1",
-      "name": "חג הסיגד",
-      "category": "other",
-      "type": "one-time",
-      "participants": 0,
-      "notes": "",
-      "dates": [],
-      "hotel": {}
-    },
     {
       "id": "evt_mo66j8si_2",
       "name": "שושן פורים",
@@ -145,12 +135,7 @@
   ],
   "blockedDays": {},
   "customHolidays": {},
-  "cancelledDates": {
-    "evt_mo65lcgr_1": {
-      "2026-11-08": true,
-      "2026-11-09": true
-    }
-  },
+  "cancelledDates": {},
   "postponedDates": {},
   "cellNotes": {},
   "hiddenHolidays": {}
