@@ -1,21 +1,9 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 13:34",
-  "savedAtISO": "2026-05-11T10:34:53.773Z",
+  "savedAtISO": "2026-05-11T10:34:56.009Z",
   "hebrewYear": 5787,
   "events": [
-    {
-      "id": "pre_4",
-      "name": "כנס מנהלים ומפקחים",
-      "category": "conference",
-      "type": "one-time",
-      "dates": [
-        "2027-05-26"
-      ],
-      "participants": 0,
-      "notes": "",
-      "hotel": {}
-    },
     {
       "id": "pre_5",
       "name": "אירוע סיום מחזור ב'",
