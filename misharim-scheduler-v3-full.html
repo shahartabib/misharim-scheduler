@@ -111,14 +111,14 @@ function hebWeekday(d) { return WEEKDAYS_HEB[jsWeekday(d)]; }
 // HOLIDAY DATABASE
 // ============================================================
 const JEWISH_HOLIDAYS_DB = {
-  'Tishri': {1:'ראש השנה',2:'ראש השנה',3:'צום גדליה',10:'יום כיפור',14:'ערב סוכות',15:'סוכות',16:'חוה"מ סוכות',17:'חוה"מ סוכות',18:'חוה"מ סוכות',19:'חוה"מ סוכות',20:'חוה"מ סוכות',21:'הושענא רבה',22:'שמחת תורה'},
+  'Tishri': {1:'ראש השנה',2:'ראש השנה',3:'צום גדליה',10:'יום כיפור',11:'גשר',12:'גשר',13:'גשר',14:'ערב סוכות',15:'סוכות',16:'חוה"מ סוכות',17:'חוה"מ סוכות',18:'חוה"מ סוכות',19:'חוה"מ סוכות',20:'חוה"מ סוכות',21:'הושענא רבה',22:'שמחת תורה'},
   'Heshvan': {},
   'Kislev': {25:'חנוכה',26:'חנוכה',27:'חנוכה',28:'חנוכה',29:'חנוכה',30:'חנוכה'},
   'Tevet': {1:'חנוכה',2:'חנוכה',10:'צום עשרה בטבת'},
   'Shevat': {15:'ט"ו בשבט'},
-  'Adar': {13:'תענית אסתר',14:'פורים'},
+  'Adar': {13:'תענית אסתר',14:'פורים',15:'שושן פורים'},
   'Adar I': {},
-  'Adar II': {13:'תענית אסתר',14:'פורים'},
+  'Adar II': {13:'תענית אסתר',14:'פורים',15:'שושן פורים'},
   'Nisan': {14:'ערב פסח',15:'פסח',16:'חוה"מ פסח',17:'חוה"מ פסח',18:'חוה"מ פסח',19:'חוה"מ פסח',20:'חוה"מ פסח',21:'שביעי של פסח',27:'יום השואה'},
   'Iyar': {4:'יום הזיכרון',5:'יום העצמאות',18:'ל"ג בעומר',28:'יום ירושלים'},
   'Sivan': {6:'שבועות',7:'שבועות'},
@@ -135,18 +135,19 @@ const ISLAMIC_HOLIDAYS_DB = {
 
 // Arab & Druze holidays - fixed Gregorian dates (multi-day ranges)
 const ARAB_DRUZE_HOLIDAYS_FIXED = [
-  { month: 12, days: [24,25,26,27,28,29,30,31], name: 'חופשת חורף - חברה ערבית' },
-  { month: 1, days: [1,2,3,4,5,6,7,8], name: 'חופשת חורף - חברה ערבית' },
-  { month: 12, days: [23,24,25,26,27,28,29,30,31], name: 'חופשת חורף - חברה דרוזית' },
-  { month: 1, days: [1,2,3,4,5,6,7,8,9], name: 'חופשת חורף - חברה דרוזית' },
-  { month: 3, days: [28,29,30,31], name: 'חופשת אביב - חברה ערבית' },
-  { month: 4, days: [1,2,3,4,5,6,7,8,9,10,11,12,13], name: 'חופשת אביב - חברה ערבית' },
-  { month: 4, days: [16,17,18,19,20,21,22,23], name: 'חופשת אביב - חברה דרוזית' },
-  { month: 4, days: [24,25,26,27], name: 'חג הנביא שועייב' },
-  { month: 5, days: [16,17,18,19,20], name: 'עיד אל-אדחא (חג הקורבן)' },
-  { month: 9, day: 10, name: 'יום הנביא סבלאן' },
-  { month: 11, day: 9, name: 'חג הסיגד' },
-  { month: 12, days: [24,25,26], name: 'חג המולד' },
+  { month: 12, days: [24,25,26,27,28,29,30,31], name: 'חופשת חורף - חברה ערבית', type: 'arab' },
+  { month: 1, days: [1,2,3,4,5,6,7,8], name: 'חופשת חורף - חברה ערבית', type: 'arab' },
+  { month: 12, days: [23,24,25,26,27,28,29,30,31], name: 'חופשת חורף - חברה דרוזית', type: 'druze' },
+  { month: 1, days: [1,2,3,4,5,6,7,8,9], name: 'חופשת חורף - חברה דרוזית', type: 'druze' },
+  { month: 1, days: [5,6], name: 'לילת אל-איסרא', type: 'arab' },
+  { month: 3, days: [28,29,30,31], name: 'חופשת אביב - חברה ערבית', type: 'arab' },
+  { month: 4, days: [1,2,3,4,5,6,7,8,9,10,11,12,13], name: 'חופשת אביב - חברה ערבית', type: 'arab' },
+  { month: 4, days: [16,17,18,19,20,21,22,23], name: 'חופשת אביב - חברה דרוזית', type: 'druze' },
+  { month: 4, days: [24,25,26,27], name: 'חג הנביא שועייב', type: 'druze' },
+  { month: 5, days: [16,17,18,19,20], name: 'עיד אל-אדחא (חג הקורבן)', type: 'arab' },
+  { month: 9, days: [10], name: 'יום הנביא סבלאן', type: 'druze' },
+  { month: 11, days: [9], name: 'חג הסיגד', type: 'jewish' },
+  { month: 12, days: [24,25,26], name: 'חג המולד', type: 'arab' },
 ];
 
 // Druze holidays - single day
@@ -202,8 +203,7 @@ function generateHolidays(gregStartYear) {
     // Arab & Druze multi-day holidays
     for (const adh of ARAB_DRUZE_HOLIDAYS_FIXED) {
       if (d.getMonth() + 1 === adh.month && adh.days && adh.days.includes(d.getDate())) {
-        const type = adh.name.includes('דרוזית') ? 'druze' : 'arab';
-        entries.push({ name: adh.name, type });
+        entries.push({ name: adh.name, type: adh.type || 'arab' });
       }
     }
 
@@ -503,6 +503,19 @@ const AI_TOOLS = [
         days: { type: 'number', description: 'מספר הימים להסטה (חיובי=הקדם, שלילי=דחה)' }
       },
       required: ['eventId', 'days']
+    }
+  },
+  {
+    name: 'add_holiday',
+    description: 'הוספת חג ידני או יום מיוחד ללוח השנה. השתמש בכלי זה עבור חגים, ימי זיכרון, מבחנים ארציים, וכל תאריך שהוא לא אירוע ארגוני. אל תשתמש ב-schedule_event לדברים כאלה.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        date: { type: 'string', description: 'תאריך YYYY-MM-DD' },
+        name: { type: 'string', description: 'שם החג/היום המיוחד' },
+        type: { type: 'string', enum: ['jewish','arab','druze','memorial','custom'], description: 'סוג: jewish=יהודי, arab=ערבי, druze=דרוזי, memorial=יום זיכרון, custom=אחר' }
+      },
+      required: ['date', 'name', 'type']
     }
   }
 ];
@@ -872,12 +885,9 @@ function App() {
 
     setSyncStatus('saving');
     try {
-      // Fetch latest remote to merge
+      // Fetch latest remote sha, then push local data (local-wins)
       const remote = await ghFetchData();
-      const mergedData = mergeProjectData(remote?.data, localData);
-      mergedData.savedAt = timestamp;
-      mergedData.savedAtISO = new Date().toISOString();
-      const newSha = await ghPushData(mergedData, remote?.sha || ghSha, token);
+      const newSha = await ghPushData(localData, remote?.sha || ghSha, token);
       setGhSha(newSha);
       setLastSync(new Date());
       setSyncStatus('synced');
@@ -1337,7 +1347,8 @@ ${blockedSummary || 'אין ימים חסומים'}
 
 קטגוריות זמינות: ${Object.entries(CATEGORIES).map(([k,v]) => `${k}=${v.name}`).join(', ')}
 
-תמיד ענה בעברית. השתמש בכלים כדי לבצע פעולות. כשמישהו שואל שאלת מידע (מתי/כמה/איפה) - ענה ישירות מהמידע שברשותך בלי להשתמש בכלים.`;
+תמיד ענה בעברית. השתמש בכלים כדי לבצע פעולות. כשמישהו שואל שאלת מידע (מתי/כמה/איפה) - ענה ישירות מהמידע שברשותך בלי להשתמש בכלים.
+חשוב: חגים, ימי זיכרון, מבחנים ארציים ותאריכים חסומים הם לא אירועים! השתמש ב-add_holiday עבור חגים וימי זיכרון, וב-block_day עבור ימים חסומים ומבחנים. השתמש ב-schedule_event רק עבור אירועים ארגוניים (סמינרים, כנסים, פורומים, ביקורים וכד').`;
   }, [events, blockedDays, allHolidays, hebrewYear, gregStartYear]);
 
   const executeAiTool = useCallback((toolName, toolInput) => {
@@ -1394,6 +1405,10 @@ ${blockedSummary || 'אין ימים חסומים'}
       case 'block_day': {
         blockDay(toolInput.date, toolInput.reason);
         return `יום ${toolInput.date} נחסם: ${toolInput.reason}`;
+      }
+      case 'add_holiday': {
+        addCustomHoliday(toolInput.date, toolInput.name, toolInput.type || 'custom');
+        return `חג/יום מיוחד "${toolInput.name}" נוסף ב-${toolInput.date}.`;
       }
       case 'suggest_dates': {
         const suggestions = suggestDates(toolInput.count || 3, {
@@ -1468,7 +1483,7 @@ ${blockedSummary || 'אין ימים חסומים'}
       }
       default: return 'כלי לא מוכר';
     }
-  }, [events, addEvent, removeEvent, cancelDate, postponeDate, blockDay, suggestDates, yearData, allHolidays, blockedDays, getEventsForDate]);
+  }, [events, addEvent, removeEvent, cancelDate, postponeDate, blockDay, addCustomHoliday, suggestDates, yearData, allHolidays, blockedDays, getEventsForDate]);
 
   const sendAiMessage = useCallback(async (message) => {
     if (!apiKey) { alert('נא להזין API Key בהגדרות'); return; }
