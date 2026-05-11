@@ -507,7 +507,7 @@ const AI_TOOLS = [
   },
   {
     name: 'add_holiday',
-    description: 'הוספת חג ידני או יום מיוחד ללוח השנה. השתמש בכלי זה עבור חגים, ימי זיכרון, מבחנים ארציים, וכל תאריך שהוא לא אירוע ארגוני. אל תשתמש ב-schedule_event לדברים כאלה.',
+    description: 'הוספת חג ומועד או יום מיוחד ללוח השנה. השתמש בכלי זה עבור חגים, ימי זיכרון, מבחנים ארציים, וכל תאריך שהוא לא אירוע ארגוני. אל תשתמש ב-schedule_event לדברים כאלה.',
     input_schema: {
       type: 'object',
       properties: {
@@ -1408,7 +1408,7 @@ ${blockedSummary || 'אין ימים חסומים'}
       }
       case 'add_holiday': {
         addCustomHoliday(toolInput.date, toolInput.name, toolInput.type || 'custom');
-        return `חג/יום מיוחד "${toolInput.name}" נוסף ב-${toolInput.date}.`;
+        return `חג ומועד "${toolInput.name}" נוסף ב-${toolInput.date}.`;
       }
       case 'suggest_dates': {
         const suggestions = suggestDates(toolInput.count || 3, {
@@ -1796,7 +1796,7 @@ ${blockedSummary || 'אין ימים חסומים'}
             <span className="inline-block w-4 h-4 rounded border border-red-300" style={{background:'repeating-linear-gradient(45deg, transparent, transparent 2px, #ff000015 2px, #ff000015 4px)'}}></span><span>חסום</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">דבל קליק = אירוע חדש | Shift+לחיצה = חסום | Ctrl+לחיצה = חג ידני</span>
+            <span className="text-xs text-gray-400">דבל קליק = אירוע חדש | Shift+לחיצה = חסום | Ctrl+לחיצה = חג ומועד</span>
             <select value={viewMode} onChange={e => setViewMode(e.target.value === 'year' ? 'year' : Number(e.target.value))}
               className="border rounded px-2 py-1 text-xs bg-white">
               <option value="year">תצוגה שנתית</option>
@@ -3068,8 +3068,8 @@ function SettingsPanel({ apiKey, setApiKey, ghToken, setGhToken, syncStatus, las
 
       {/* Custom holidays */}
       <div>
-        <h3 className="font-semibold text-sm mb-2">📅 חגים ידניים</h3>
-        {Object.keys(customHolidays).length === 0 && <p className="text-gray-400 text-xs">אין חגים ידניים (Ctrl+לחיצה על תא)</p>}
+        <h3 className="font-semibold text-sm mb-2">📅 חגים ומועדים</h3>
+        {Object.keys(customHolidays).length === 0 && <p className="text-gray-400 text-xs">אין חגים ומועדים (Ctrl+לחיצה על תא)</p>}
         <div className="space-y-1">
           {Object.entries(customHolidays).sort().map(([date, hol]) => (
             <div key={date} className="flex justify-between items-center text-xs bg-green-50 rounded px-2 py-1">
@@ -3107,7 +3107,7 @@ function SettingsPanel({ apiKey, setApiKey, ghToken, setGhToken, syncStatus, las
         <p>• <strong>דבל קליק</strong> על תא ריק = אירוע חדש</p>
         <p>• בחר אירוע בצד ← לחץ על תא בגאנט לשיבוץ</p>
         <p>• <kbd className="bg-gray-200 px-1 rounded">Shift</kbd>+לחיצה = חסום/בטל חסימה</p>
-        <p>• <kbd className="bg-gray-200 px-1 rounded">Ctrl</kbd>+לחיצה = הוסף חג ידני</p>
+        <p>• <kbd className="bg-gray-200 px-1 rounded">Ctrl</kbd>+לחיצה = הוסף חג ומועד</p>
         <p>• רחף על תא לראות פרטים</p>
         <p>• ⏩ = דחייה | ❌ = ביטול תאריך</p>
       </div>
