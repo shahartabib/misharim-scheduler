@@ -1,24 +1,9 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 13:12",
-  "savedAtISO": "2026-05-11T10:12:41.456Z",
+  "savedAtISO": "2026-05-11T10:12:43.844Z",
   "hebrewYear": 5787,
   "events": [
-    {
-      "id": "evt_mo681g8a_6",
-      "name": "חופשת אביב חברה ערבית",
-      "category": "other",
-      "type": "one-time",
-      "participants": 0,
-      "notes": "",
-      "dates": [
-        "2027-03-28",
-        "2027-03-29",
-        "2027-03-30",
-        "2027-03-31"
-      ],
-      "hotel": {}
-    },
     {
       "id": "evt_mo683usi_7",
       "name": "לילת אל איסרא",
