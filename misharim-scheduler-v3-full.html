@@ -20,12 +20,13 @@
 .gantt-cell.arab-holiday { background: #FFCCCC; }
 .gantt-cell.druze-holiday { background: #CCE5CC; }
 .gantt-cell.blocked { background: repeating-linear-gradient(45deg, transparent, transparent 3px, #ff000020 3px, #ff000020 6px) !important; }
+.gantt-cell.jewish-holiday, .gantt-cell.arab-holiday, .gantt-cell.druze-holiday { overflow: visible; }
 .gantt-cell.has-event { position: relative; }
 .gantt-cell.has-note::after { content: '✎'; position: absolute; top: 1px; right: 1px; font-size: 8px; color: #ff6b6b; font-weight: bold; }
 .event-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 4px; }
 .month-label { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); font-weight: 600; font-size: 13px; background: #ECF9E7; min-width: 28px; text-align: center; padding: 4px 2px; }
 .gantt-header { font-size: 9px; font-weight: 600; color: #666; }
-.holiday-text { font-size: 7px; color: #333; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.holiday-text { font-size: 7px; color: #333; line-height: 1; white-space: nowrap; overflow: visible; position: relative; z-index: 5; pointer-events: none; }
 .event-cell { font-size: 8px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; padding: 1px 2px; border-radius: 2px; }
 .gantt-cell.highlight-event { outline: 3px solid #f97316 !important; z-index: 20; box-shadow: 0 0 8px #f9731660; }
 .monthly .gantt-cell { min-width: 80px; max-width: 80px; height: 32px; font-size: 13px; }
@@ -2141,7 +2142,7 @@ function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate
             {/* Holiday rows (dynamic — one row per overlapping holiday) */}
             {Array.from({ length: maxHolidaysInMonth }, (_, holRowIdx) => (
               <div key={`hol-row-${holRowIdx}`} className="flex">
-                {month.days.map(day => {
+                {month.days.map((day, dayIdx) => {
                   const hols = holidays[day.date];
                   const hol = hols?.[holRowIdx];
                   if (!hol) {
@@ -2157,12 +2158,18 @@ function MonthBlock({ month, monthIndex, holidays, blockedDays, getEventsForDate
                   else if (holType === 'arab') bgClass = 'arab-holiday';
                   else if (holType === 'druze') bgClass = 'druze-holiday';
 
+                  // Only show text on first cell of consecutive run of same holiday
+                  const prevDay = month.days[dayIdx + 1]; // +1 because RTL — previous visual cell is next in array
+                  const prevHols = prevDay ? holidays[prevDay.date] : null;
+                  const prevHol = prevHols?.[holRowIdx];
+                  const isFirstInRun = !prevHol || prevHol.name !== hol.name;
+
                   return (
                     <div key={`hol-${day.date}-${holRowIdx}`}
                       className={`gantt-cell ${bgClass} cursor-pointer`}
                       title={hol.name}
                       onDoubleClick={(e) => { e.stopPropagation(); handleCellDoubleClick(day.date); }}>
-                      <span className="holiday-text">{hol.name}</span>
+                      {isFirstInRun && <span className="holiday-text">{hol.name}</span>}
                     </div>
                   );
                 })}
