@@ -952,7 +952,7 @@ function App() {
     const timer = setTimeout(() => {
       pendingSync.current = false;
       autoSync();
-    }, 800);
+    }, 500);
     return () => clearTimeout(timer);
   }, [events, blockedDays, customHolidays, cancelledDates, postponedDates, cellNotes, hiddenHolidays, autoSync]);
 
