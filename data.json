@@ -1,21 +1,9 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 13:34",
-  "savedAtISO": "2026-05-11T10:34:46.789Z",
+  "savedAtISO": "2026-05-11T10:34:51.139Z",
   "hebrewYear": 5787,
   "events": [
-    {
-      "id": "pre_2",
-      "name": "ביקורים",
-      "category": "other",
-      "type": "one-time",
-      "dates": [
-        "2027-05-20"
-      ],
-      "participants": 0,
-      "notes": "",
-      "hotel": {}
-    },
     {
       "id": "pre_3",
       "name": "שאלוני אח\"מ",
