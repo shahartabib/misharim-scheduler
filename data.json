@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "11.05.2026, 12:59",
-  "savedAtISO": "2026-05-11T09:59:00.695Z",
+  "savedAt": "11.05.2026, 13:00",
+  "savedAtISO": "2026-05-11T10:00:24.497Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -134,7 +134,12 @@
     }
   ],
   "blockedDays": {},
-  "customHolidays": {},
+  "customHolidays": {
+    "2026-11-09": {
+      "name": "חג סיגד",
+      "type": "custom"
+    }
+  },
   "cancelledDates": {},
   "postponedDates": {},
   "cellNotes": {},
