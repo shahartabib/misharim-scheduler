@@ -1,20 +1,9 @@
 {
   "version": "1.0",
   "savedAt": "11.05.2026, 13:12",
-  "savedAtISO": "2026-05-11T10:12:50.267Z",
+  "savedAtISO": "2026-05-11T10:12:53.161Z",
   "hebrewYear": 5787,
-  "events": [
-    {
-      "id": "evt_mo68cz5f_10",
-      "name": "חג המולד",
-      "category": "other",
-      "type": "one-time",
-      "participants": 0,
-      "notes": "",
-      "dates": [],
-      "hotel": {}
-    }
-  ],
+  "events": [],
   "blockedDays": {},
   "customHolidays": {},
   "cancelledDates": {},
