@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "12.05.2026, 12:19",
-  "savedAtISO": "2026-05-12T09:19:08.787Z",
+  "savedAt": "12.05.2026, 12:20",
+  "savedAtISO": "2026-05-12T09:20:27.825Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -40,6 +40,30 @@
       "type": "one-time",
       "dates": [
         "2027-02-02"
+      ],
+      "participants": 0,
+      "notes": "",
+      "hotel": {}
+    },
+    {
+      "id": "evt_mp2f74c4_6",
+      "name": "כנס מישרים קיץ",
+      "category": "conference",
+      "type": "one-time",
+      "dates": [
+        "2027-07-05"
+      ],
+      "participants": 0,
+      "notes": "",
+      "hotel": {}
+    },
+    {
+      "id": "evt_mp2f74c4_7",
+      "name": "סמינר מנהלים",
+      "category": "seminar",
+      "type": "one-time",
+      "dates": [
+        "2027-07-06"
       ],
       "participants": 0,
       "notes": "",
