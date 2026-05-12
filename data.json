@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "savedAt": "12.05.2026, 12:17",
-  "savedAtISO": "2026-05-12T09:17:34.055Z",
+  "savedAt": "12.05.2026, 12:19",
+  "savedAtISO": "2026-05-12T09:19:08.787Z",
   "hebrewYear": 5787,
   "events": [
     {
@@ -19,6 +19,30 @@
       ],
       "participants": 0,
       "notes": "מפגש בנען כולל רפרנטיות מחוזיות",
+      "hotel": {}
+    },
+    {
+      "id": "evt_mp2f5fci_4",
+      "name": "כנס מישרים חורף",
+      "category": "conference",
+      "type": "one-time",
+      "dates": [
+        "2027-02-03"
+      ],
+      "participants": 0,
+      "notes": "",
+      "hotel": {}
+    },
+    {
+      "id": "evt_mp2f5fcj_5",
+      "name": "סמינר מנהלים",
+      "category": "seminar",
+      "type": "one-time",
+      "dates": [
+        "2027-02-02"
+      ],
+      "participants": 0,
+      "notes": "",
       "hotel": {}
     }
   ],
